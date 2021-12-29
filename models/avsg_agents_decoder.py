@@ -84,14 +84,13 @@ class AgentsDecoderMLP(nn.Module):
         super(AgentsDecoderMLP, self).__init__()
         self.device = device
         self.agents_dec_dim_hid = opt.agents_dec_dim_hid
-
+        self.max_num_agents = opt.max_num_agents
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
-        self.num_agents = opt.num_agents
         self.dim_latent_map = opt.dim_latent_map
         self.dim_agent_noise = opt.dim_agent_noise
-        self.d_in = self.dim_agent_noise * self.num_agents + opt.dim_latent_map
-        self.d_out = self.dim_agent_feat_vec * self.num_agents
+        self.d_in = self.dim_agent_noise * self.max_num_agents + opt.dim_latent_map
+        self.d_out = self.dim_agent_feat_vec * self.max_num_agents
 
 
         self.decoder = MLP(d_in=self.d_in,
@@ -101,13 +100,14 @@ class AgentsDecoderMLP(nn.Module):
                            opt=opt,
                            bias=opt.agents_dec_use_bias)
 
-    def forward(self, map_latent, latent_noise):
+    def forward(self, map_latent, latent_noise, n_agents):
         latent_noise_f = torch.flatten(latent_noise)
         in_vec = torch.cat([map_latent, latent_noise_f])
+        assert in_vec.shape[0] == self.d_in
         out_vec = self.decoder(in_vec)
 
         agents_feat_vec_list = []
-        for i_agent in range(self.num_agents):
+        for i_agent in range(n_agents):
             output_feat = out_vec[i_agent * self.dim_agent_feat_vec:(i_agent + 1) * self.dim_agent_feat_vec]
             # Project the generator output to the feature vectors domain:
             agent_feat = project_to_agent_feat(output_feat)

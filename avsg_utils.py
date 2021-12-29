@@ -55,7 +55,12 @@ def agents_feat_dicts_to_vecs(agent_feat_vec_coord_labels, agents_feat_dicts, de
 
 
 def pre_process_scene_data(scene_data, opt):
-    num_agents = opt.num_agents
+
+
+    n_agents  = len(scene_data['agents_feat'])
+
+    n_agents = min(n_agents, opt.max_num_agents) # we will take only up to max_num_agents agents from the scene
+
     agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
     polygon_name_order = opt.polygon_name_order
     device = opt.device
@@ -65,12 +70,10 @@ def pre_process_scene_data(scene_data, opt):
                                            'extent_length', 'extent_width', 'speed',
                                            'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
 
-    is_valid, agents_feat_vecs = filter_and_preprocess_agent_feat(scene_data['agents_feat'],
-                                                                  num_agents, agent_feat_vec_coord_labels, device)
-
-    # if there are too few agents in the scene - skip it
-    if not is_valid:
-        return False, None, None
+    agents_feat_vecs = filter_and_preprocess_agent_feat(
+        scene_data['agents_feat'],
+        n_agents, agent_feat_vec_coord_labels,
+        device)
 
     # Map features - Move to device
     map_feat = dict()
@@ -126,24 +129,22 @@ def pre_process_scene_data(scene_data, opt):
 
     else:
         raise NotImplementedError(f'Unrecognized opt.augmentation_type  {opt.augmentation_type}')
-    conditioning = {'map_feat': map_feat, 'n_agents': num_agents}
     real_agents = agents_feat_vecs
-    return True, real_agents, conditioning
+    conditioning = {'map_feat': map_feat, 'n_agents': n_agents}
+    return real_agents, map_feat, conditioning
+#########################################################################################
 
 
 #########################################################################################
 
 
-def filter_and_preprocess_agent_feat(agent_feat, num_agents, agent_feat_vec_coord_labels, device):
+def filter_and_preprocess_agent_feat(agent_feat, n_agents, agent_feat_vec_coord_labels, device):
     # We assume this order of coordinates:
     assert agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y',
                                            'yaw_cos', 'yaw_sin',
                                            'extent_length', 'extent_width', 'speed',
                                            'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
 
-    # if there are too few agents in the scene - skip it
-    if len(agent_feat) < num_agents:
-        return False, None
     # --------------------------------------
     # Filter out the selected agents
     # --------------------------------------
@@ -157,11 +158,11 @@ def filter_and_preprocess_agent_feat(agent_feat, num_agents, agent_feat_vec_coor
                                                  device)
     agents_dists_order = np.argsort(agent_dists_to_ego)
 
-    agents_inds = agents_dists_order[:num_agents]  # take the closest agent to the ego
+    agents_inds = agents_dists_order[:n_agents]  # take the closest agent to the ego
     np.random.shuffle(agents_inds)  # shuffle so that the ego won't always be first
     agents_feat_vecs = agents_feat_vecs[agents_inds]
 
-    return True, agents_feat_vecs
+    return agents_feat_vecs
 
 
 #########################################################################################
@@ -223,3 +224,5 @@ def calc_agents_feats_stats(dataset, agent_feat_vec_coord_labels, device, num_ag
     #     nrm_feat[:, self.agent_feat_to_nrm] /= self.agent_feat_std[self.agent_feat_to_nrm]
     #     return nrm_feat
     #########################################################################################
+
+

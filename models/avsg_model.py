@@ -15,21 +15,12 @@ You need to implement the following functions:
     <forward>: Run forward pass. This will be called by both <optimize_parameters> and <test>.
     <optimize_parameters>: Update network weights; it will be called in every training iteration.
 """
-import time
-import pickle
-import datetime
-from util.util import strfdelta
-import os
-import torch
-import wandb
 
+import torch
 from .base_model import BaseModel
 from . import networks
-from avsg_visualization_utils import visualize_scene_feat
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
+from avsg_utils import pre_process_scene_data
 from models.networks import cal_gradient_penalty
-
-
 #########################################################################################
 
 
@@ -45,7 +36,6 @@ class AvsgModel(BaseModel):
         Returns:
             the modified parser.
         """
-
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
                             default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
@@ -67,7 +57,7 @@ class AvsgModel(BaseModel):
                                      'is_PEDESTRIAN',  # [9]  0 or 1
                                      ],
                             type=list)
-        parser.add_argument('--num_agents', type=int, default=4, help=' number of agents in a scene')
+        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
         # ~~~~  Data processing
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
@@ -81,6 +71,9 @@ class AvsgModel(BaseModel):
                                 netG='SceneGenerator')
             parser.add_argument('--agents_decoder_model', type=str,
                                 default='MLP')  # | 'MLP' | 'LSTM'
+            # parser.add_argument('--num_samples_pack', type=int,
+            #                     default=1)  # accumulate  m samples to classify with D (as in PacGAN)
+
 
         if is_train:
             # ~~~~  Training optimization settings
@@ -132,6 +125,7 @@ class AvsgModel(BaseModel):
                 display_id=0)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=4, help='')
+            parser.add_argument('--stats_n_maps', type=int, default=10, help='')
 
         return parser
 
@@ -153,11 +147,10 @@ class AvsgModel(BaseModel):
         self.polygon_name_order = opt.polygon_name_order
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
-        self.num_agents = opt.num_agents
         self.opt = opt
         # specify the training losses you want to print out.
         # The program will call base_model.get_current_losses to plot the losses to the console and save them to the disk.
-        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake', 'D_grad_penalty']
+        self.loss_names = ['G_GAN', 'G_reconstruct', 'D_real', 'D_fake', 'D_grad_penalty']
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -175,9 +168,9 @@ class AvsgModel(BaseModel):
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             if opt.reconstruct_loss_type == 'L1':
-                self.criterionL1 = torch.nn.L1Loss()
+                self.criterion_reconstruct = torch.nn.L1Loss()
             elif opt.reconstruct_loss_type == 'MSE':
-                self.criterionL1 = torch.nn.MSELoss()
+                self.criterion_reconstruct = torch.nn.MSELoss()
             else:
                 raise NotImplementedError
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
@@ -193,20 +186,29 @@ class AvsgModel(BaseModel):
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
             ##
+    #########################################################################################
+    # def is_sample_valid(self, scene_data):
+    #     assert isinstance(scene_data, dict)  # assume batch_size == 1, where the sample is a dict of one scene
+    #     agents_feat = scene_data['agents_feat']
+    #     # if there are too few agents in the scene - skip it
+    #     return len(agents_feat) <= self.num_agents
 
+    #########################################################################################
     def set_input(self, scene_data):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
         Parameters:
             input: a dictionary that contains the data itself and its metadata information.
         """
-        assert isinstance(scene_data, dict)  # assume batch_size == 1, where the sample is a dict of one scene
-        is_valid, real_agents, conditioning = pre_process_scene_data(scene_data, self.opt)
-        # if there are too few agents in the scene - skip it
-        if not is_valid:
-            return False
-        self.conditioning = conditioning
-        self.real_agents = real_agents
-        return True
+        self.real_agents, map_feat, self.conditioning = pre_process_scene_data(scene_data, self.opt)
+        #########################################################################################
+
+        # self.conditioning = []
+        # self.real_agents = []
+        # # for i, scene_data in enumerate(data_buffer):
+        #     real_agents, map_feat, conditioning = pre_process_scene_data(scene_data, self.opt)
+        #     self.real_agents.append(real_agents)
+        #     self.conditioning.append(conditioning)
+
     #########################################################################################
 
     def forward(self):
@@ -219,28 +221,32 @@ class AvsgModel(BaseModel):
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
 
-        # Feed fake (generated) agents to discriminator and calculate its prediction loss
         # we use conditional GANs; we need to feed both input and output to the discriminator
-        # stop backprop to the generator by detaching fake_B
-        fake_agents_detached = self.fake_agents.detach()
-        pred_fake = self.netD(self.conditioning, fake_agents_detached)
-        self.loss_D_fake = self.criterionGAN(pred_fake, False)
+
+
+        # Feed fake agents to discriminator and calculate its prediction loss
+        fake_agents_detached = self.fake_agents.detach()  # stop backprop to the generator by detaching
+        pred_is_real_for_fake = self.netD(self.conditioning, fake_agents_detached)
+
+        # the loss is 0 if D correctly classify as fake
+        self.loss_D_fake = self.criterionGAN(prediction=pred_is_real_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        pred_real = self.netD(self.conditioning, self.real_agents)
-        self.loss_D_real = self.criterionGAN(pred_real, True)
+        pred_is_real_for_real = self.netD(self.conditioning, self.real_agents)
+
+        # the loss is 0 if D correctly classify as not fake
+        self.loss_D_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
 
         if self.gan_mode == 'wgangp':
             self.loss_D_grad_penalty = cal_gradient_penalty(self.netD, self.conditioning,
                                                             self.real_agents, fake_agents_detached,
                                                             self.device, type='mixed',
-                                                            constant=1.0, lambda_gp=self.lambda_gp)
+                                                            constant=1.0)
         else:
             self.loss_D_grad_penalty = 0
 
         # combine loss and calculate gradients
-        self.loss_D = 0.5 * (self.loss_D_fake + self.loss_D_real) + self.loss_D_grad_penalty
-
+        self.loss_D = self.loss_D_fake + self.loss_D_real + self.lambda_gp * self.loss_D_grad_penalty
         self.loss_D.backward()
 
     #########################################################################################
@@ -248,14 +254,15 @@ class AvsgModel(BaseModel):
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         #  the generator should fool the discriminator
-        pred_fake = self.netD(self.conditioning, self.fake_agents)
-        self.loss_G_GAN = self.criterionGAN(pred_fake, True)
+        pred_is_real_for_fake = self.netD(self.conditioning, self.fake_agents)
+        # G wants to make D wrongly classify the fake sample (make D output "True")
+        self.loss_G_GAN = self.criterionGAN(prediction=pred_is_real_for_fake, target_is_real=True)
 
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
-        self.loss_G_L1 = self.criterionL1(self.fake_agents, self.real_agents) * self.opt.lambda_reconstruct
+        self.loss_G_reconstruct = self.criterion_reconstruct(self.fake_agents, self.real_agents)
 
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        self.loss_G = self.loss_G_GAN + self.loss_G_reconstruct * self.opt.lambda_reconstruct
 
         self.loss_G.backward()
 
@@ -279,61 +286,3 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def get_visual_samples(self, dataset, opt, epoch, epoch_iter, run_start_time):
-
-        """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
-        visuals_dict = {}
-        use_wandb = opt.use_wandb
-
-        n_maps = opt.vis_n_maps
-        n_generator_runs = opt.vis_n_generator_runs
-
-        show_loss = epoch > 1 or epoch_iter > 1
-
-        map_id = 1
-        wandb_logs = dict()
-        if use_wandb and show_loss:
-            # Log all losses in charts:
-            info_dict = self.get_current_losses()
-            wandb.log(info_dict)
-            # Show also in table of current vales:
-            run_time_str = strfdelta(datetime.timedelta(seconds=time.time() - run_start_time), '%H:%M:%S')
-            table_columns = ['Runtime'] + list(info_dict.keys())
-            table_data_row = [run_time_str] + list(info_dict.values())
-            table_data_rows = [table_data_row]
-            wandb_logs[f"Epoch {epoch}, iteration {epoch_iter}"] = \
-                wandb.Table(columns=table_columns, data=table_data_rows)
-
-
-        for scene_data in dataset:
-            log_label = f"Epoch {epoch}, iteration {epoch_iter}, Map #{map_id}"
-            is_valid, real_agents, conditioning = pre_process_scene_data(scene_data, self.opt)
-            if not is_valid:
-                continue
-            real_map = conditioning['map_feat']
-            real_agents_feat_dicts = agents_feat_vecs_to_dicts(real_agents)
-            img = visualize_scene_feat(real_agents_feat_dicts, real_map)
-            pred_fake = torch.sigmoid(self.netD(conditioning, real_agents)).item()
-            visuals_dict[f'map_{map_id}_real_fake_{int(100 * pred_fake)}'] = img
-            if use_wandb:
-                caption = f'real_agents\nD_fake={pred_fake:.2}\n'
-                caption += '\n'.join(get_agents_descriptions(real_agents_feat_dicts))
-                wandb_logs[log_label] = [wandb.Image(img, caption=caption)]
-
-            for i_generator_run in range(n_generator_runs):
-                fake_agents_feat_vecs = self.netG(conditioning)
-                fake_agents_feat_dicts = agents_feat_vecs_to_dicts(fake_agents_feat_vecs)
-                img = visualize_scene_feat(fake_agents_feat_dicts, real_map)
-                pred_fake = torch.sigmoid(self.netD(conditioning, fake_agents_feat_vecs)).item()
-                visuals_dict[f'map_{map_id}_gen_{i_generator_run + 1}_D_fake={pred_fake:.2}'] = img
-                if use_wandb:
-                    caption = f'gen_agents_#{i_generator_run + 1}\nD_fake={pred_fake:.2}\n'
-                    caption += '\n'.join(get_agents_descriptions(fake_agents_feat_dicts))
-                    wandb_logs[log_label].append(
-                        wandb.Image(img, caption=caption))
-            map_id += 1
-            if map_id > n_maps:
-                break
-
-        return visuals_dict, wandb_logs
-    #########################################################################################
