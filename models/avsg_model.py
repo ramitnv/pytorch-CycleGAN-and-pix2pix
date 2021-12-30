@@ -131,7 +131,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=3, help='')
             parser.add_argument('--stats_n_maps', type=int, default=10, help='')
-
+            parser.add_argument('--g_var_n_generator_runs', type=int, default=5, help='')
         return parser
 
     #########################################################################################

@@ -125,8 +125,10 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
     stats_n_maps = opt.stats_n_maps  # how many maps to average over the metrics
     vis_n_maps = opt.vis_n_maps  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
+    g_var_n_generator_runs = opt.g_var_n_generator_runs  # how many sampled fake agents per map to caclulate G out variance
+
     metrics = dict()
-    metrics_type_names = ['G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
+    metrics_type_names = ['G/out_variance', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
                           'D/loss_classify_real', 'D/loss_classify_fake', 'D/loss_grad_penalty',
                           'D/loss_total', 'D/logit(fake)', 'D/logit(real)']
 
@@ -189,7 +191,18 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
                     visuals_dict[f'{dataset_name}_map_#{map_id + 1}_fake_#{i_generator_run + 1}'] = img
                     if opt.use_wandb:
                         wandb_logs[log_label].append(wandb_img)
+
+            samples_fake_agents_vecs = []
+            for i_generator_run in range(g_var_n_generator_runs):
+                samples_fake_agents_vecs.append(model.netG(conditioning).detach())
+            samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
+            # calculate variance across samples:
+            feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
+            # Avg all out feat:
+            metrics[f'{dataset_name}/G/out_variance'][map_id] = feat_var_across_samples.mean()
+
             map_id += 1
+
 
     # Average over the maps:
     for key, val in metrics.items():
