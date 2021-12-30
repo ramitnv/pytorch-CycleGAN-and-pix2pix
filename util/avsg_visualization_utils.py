@@ -128,7 +128,7 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
     g_var_n_generator_runs = opt.g_var_n_generator_runs  # how many sampled fake agents per map to caclulate G out variance
 
     metrics = dict()
-    metrics_type_names = ['G/out_variance', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
+    metrics_type_names = ['G/out_variability', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
                           'D/loss_classify_real', 'D/loss_classify_fake', 'D/loss_grad_penalty',
                           'D/loss_total', 'D/logit(fake)', 'D/logit(real)']
 
@@ -199,7 +199,7 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
             # calculate variance across samples:
             feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
             # Avg all out feat:
-            metrics[f'{dataset_name}/G/out_variance'][map_id] = feat_var_across_samples.mean()
+            metrics[f'{dataset_name}/G/out_variability'][map_id] = feat_var_across_samples.mean()
 
             map_id += 1
 
