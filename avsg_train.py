@@ -80,7 +80,7 @@ if __name__ == '__main__':
                 save_result = total_iters % opt.update_html_freq == 0
                 visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, eval_dataset,
                                                                         opt, i_epoch, epoch_iter,
-                                                                        total_iters)
+                                                                        total_iters, run_start_time)
                 visualizer.display_current_results(visuals_dict, i_epoch, epoch_iter, save_result,
                                                    file_type='jpg', wandb_logs=wandb_logs)
                 print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{epoch_iter}, total_iter #{total_iters}')

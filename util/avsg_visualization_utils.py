@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -115,7 +116,7 @@ def visualize_scene_feat(agents_feat, map_feat):
 ##############################################################################################
 
 
-def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch, epoch_iter, total_iters):
+def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch, epoch_iter, total_iters, run_start_time):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
     datasets = {'train': train_dataset, 'val': eval_dataset}
@@ -212,21 +213,11 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
     metrics['run/LR'] = model.lr
     metrics['run/epoch'] = 1 + i_epoch
     metrics['run/total_iters'] = total_iters
+    metrics['run/run_hours'] = (time.time() - run_start_time) / 60**2
 
     if opt.use_wandb:
         wandb.log(metrics)
-
     print('Eval metrics: ' + ', '.join([f'{key}: {val:.2f}' for key, val in metrics.items()]))
-
-    # wandb.log(info_dict)
-    # # Show also in table of current vales:
-    # run_time_str = strfdelta(datetime.timedelta(seconds=time.time() - run_start_time), '%H:%M:%S')
-    # table_columns = ['Runtime'] + list(info_dict.keys())
-    # table_data_row = [run_time_str] + list(info_dict.values())
-    # table_data_rows = [table_data_row]
-    # wandb_logs[f"Epoch #{1+i_epoch} iter #{1+epoch_iter}"] = \
-    #     wandb.Table(columns=table_columns, data=table_data_rows)
-
     if opt.isTrain:
         model.train()
     return visuals_dict, wandb_logs
