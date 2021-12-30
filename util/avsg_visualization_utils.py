@@ -146,7 +146,7 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
 
             if map_id < vis_n_maps:
                 # Add an image of the map & real agents to wandb logs
-                log_label = f"{dataset_name}/Epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
+                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
                 img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
                 visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
                 if opt.use_wandb:
