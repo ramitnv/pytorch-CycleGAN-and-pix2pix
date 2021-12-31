@@ -112,7 +112,7 @@ class Visualizer():
         print('Command: %s' % cmd)
         Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
 
-    def display_current_results(self, visuals, epoch, epoch_iter, save_result, file_type='png', wandb_logs=None):
+    def display_current_results(self, visuals, epoch, epoch_iter, wandb_logs=None, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
@@ -188,7 +188,7 @@ class Visualizer():
         # ==========================================================================
 
         # save images to an HTML file if they haven't been saved.
-        if self.use_html and (save_result or not self.saved):
+        if self.use_html and not self.saved:
             self.saved = True
             # save images to the disk
             for label, image in visuals.items():

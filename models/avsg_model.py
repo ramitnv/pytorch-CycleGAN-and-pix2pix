@@ -199,12 +199,12 @@ class AvsgModel(BaseModel):
     #     return len(agents_feat) <= self.num_agents
 
     #########################################################################################
-    def set_input(self, scene_data):
+    def set_input(self, data_buffer):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
         Parameters:
             input: a dictionary that contains the data itself and its metadata information.
         """
-        self.real_agents, map_feat, self.conditioning = pre_process_scene_data(scene_data, self.opt)
+        self.data_buffer = data_buffer
 
     #########################################################################################
 
@@ -232,41 +232,49 @@ class AvsgModel(BaseModel):
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty
-        return loss_D, [loss_D_classify_fake, loss_D_classify_real, loss_D_grad_penalty]
+        losses_log = {"loss_D":loss_D, "loss_D_classify_fake": loss_D_classify_fake,
+                      "loss_D_classify_real": loss_D_classify_real,
+                      "loss_D_grad_penalty": loss_D_grad_penalty}
+        metrics_log = {}
+        return loss_D, losses_log, metrics_log
 
         #########################################################################################
 
-    def get_G_losses(self, conditioning):
+    def get_G_losses(self, conditioning, real_actors):
         """Calculate loss terms for the generator"""
 
-        fake_actors_set = self.netG(conditioning)
+        fake_actors = self.netG(conditioning)
 
-        d_out_for_fake = self.netD(conditioning, fake_actors_set)
+        d_out_for_fake = self.netD(conditioning, fake_actors)
 
-        # G wants to fool D to wrongly classify the fake sample (make D output "True")
+        # G aims to fool D to wrongly classify the fake sample (make D output "True")
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
-        loss_G_reconstruct = self.criterion_reconstruct(fake_actors_set, self.real_agents)
+        loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
 
         # combine losses
         loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
-        return loss_G, [loss_G_GAN, loss_G_reconstruct]
+        losses_log = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct}
+        metrics_log = {"fake_actors": fake_actors, "d_out_for_fake": d_out_for_fake}
+        return loss_G, losses_log, metrics_log
+
+    #########################################################################################
 
     #########################################################################################
 
     def optimize_parameters(self):
         """Update network weights; it will be called in every training iteration."""
 
-        conditioning = self.conditioning
-        real_actors_set = self.real_agents
+        data_buffer = self.data_buffer
+        real_actors, conditioning = data_buffer[0]
 
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, _ = self.get_D_losses(conditioning, real_actors_set)
+        loss_D, train_losses_D = self.get_D_losses(conditioning, real_actors)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
 
@@ -274,9 +282,20 @@ class AvsgModel(BaseModel):
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        loss_G, _ = self.get_G_losses(conditioning)
+        loss_G, train_losses_G = self.get_G_losses(conditioning, real_actors)
         loss_G.backward()  # calculate gradients for G
         # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
 
+        # Save for logging:
+        self.train_losses_G = train_losses_G
+        self.train_losses_D = train_losses_D
+
+    #########################################################################################
+    def get_current_losses(self):
+       return self.train_losses_D | self.train_losses_G
+
+    #########################################################################################
+    def forward(self):
+        return None
     #########################################################################################
