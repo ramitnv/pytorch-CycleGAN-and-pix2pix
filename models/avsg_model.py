@@ -21,6 +21,8 @@ from .base_model import BaseModel
 from . import networks
 from avsg_utils import pre_process_scene_data
 from models.networks import cal_gradient_penalty
+
+
 #########################################################################################
 
 
@@ -37,13 +39,11 @@ class AvsgModel(BaseModel):
             the modified parser.
         """
 
-
         # ~~~~  Data
         parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
 
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                             help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
-
 
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
@@ -78,7 +78,6 @@ class AvsgModel(BaseModel):
                                 default='MLP')  # | 'MLP' | 'LSTM'
             # parser.add_argument('--num_samples_pack', type=int,
             #                     default=1)  # accumulate  m samples to classify with D (as in PacGAN)
-
 
         if is_train:
             # ~~~~  Training optimization settings
@@ -191,6 +190,7 @@ class AvsgModel(BaseModel):
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
             ##
+
     #########################################################################################
     # def is_sample_valid(self, scene_data):
     #     assert isinstance(scene_data, dict)  # assume batch_size == 1, where the sample is a dict of one scene
@@ -205,85 +205,78 @@ class AvsgModel(BaseModel):
             input: a dictionary that contains the data itself and its metadata information.
         """
         self.real_agents, map_feat, self.conditioning = pre_process_scene_data(scene_data, self.opt)
-        #########################################################################################
-
-        # self.conditioning = []
-        # self.real_agents = []
-        # # for i, scene_data in enumerate(data_buffer):
-        #     real_agents, map_feat, conditioning = pre_process_scene_data(scene_data, self.opt)
-        #     self.real_agents.append(real_agents)
-        #     self.conditioning.append(conditioning)
 
     #########################################################################################
 
-    def forward(self):
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
-        # generate the output of the generator given the input map
-        self.fake_agents = self.netG(self.conditioning)
-
-    #########################################################################################
-
-    def backward_D(self):
-        """Calculate GAN loss for the discriminator"""
+    def get_D_losses(self, conditioning, real_actors_set):
+        """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
-
+        fake_agents = self.netG(conditioning)
 
         # Feed fake agents to discriminator and calculate its prediction loss
-        fake_agents_detached = self.fake_agents.detach()  # stop backprop to the generator by detaching
-        d_out_for_fake = self.netD(self.conditioning, fake_agents_detached)
+        fake_agents_detached = fake_agents.detach()  # stop backprop to the generator by detaching
+        d_out_for_fake = self.netD(conditioning, fake_agents_detached)
 
         # the loss is 0 if D correctly classify as fake
-        self.loss_D_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
+        loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        pred_is_real_for_real = self.netD(self.conditioning, self.real_agents)
+        pred_is_real_for_real = self.netD(conditioning, real_actors_set)
 
         # the loss is 0 if D correctly classify as not fake
-        self.loss_D_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
+        loss_D_classify_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
 
+        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors_set,
+                                                   fake_agents_detached, self)
 
-        self.loss_D_grad_penalty = cal_gradient_penalty(self.netD, self.conditioning, self.real_agents,
-                                                        fake_agents_detached, self)
+        # combine losses
+        loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty
+        return loss_D, [loss_D_classify_fake, loss_D_classify_real, loss_D_grad_penalty]
 
-        # combine loss and calculate gradients
-        self.loss_D = self.loss_D_fake + self.loss_D_real + self.lambda_gp * self.loss_D_grad_penalty
-        self.loss_D.backward()
+        #########################################################################################
 
-    #########################################################################################
+    def get_G_losses(self, conditioning):
+        """Calculate loss terms for the generator"""
 
-    def backward_G(self):
-        """Calculate GAN and L1 loss for the generator"""
-        #  the generator should fool the discriminator
-        d_out_for_fake = self.netD(self.conditioning, self.fake_agents)
-        # G wants to make D wrongly classify the fake sample (make D output "True")
-        self.loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
+        fake_actors_set = self.netG(conditioning)
+
+        d_out_for_fake = self.netD(conditioning, fake_actors_set)
+
+        # G wants to fool D to wrongly classify the fake sample (make D output "True")
+        loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
-        self.loss_G_reconstruct = self.criterion_reconstruct(self.fake_agents, self.real_agents)
+        loss_G_reconstruct = self.criterion_reconstruct(fake_actors_set, self.real_agents)
 
-        # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_reconstruct * self.opt.lambda_reconstruct
+        # combine losses
+        loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
-        self.loss_G.backward()
+        return loss_G, [loss_G_GAN, loss_G_reconstruct]
 
     #########################################################################################
 
     def optimize_parameters(self):
         """Update network weights; it will be called in every training iteration."""
-        self.forward()  # compute fake images: G(A)
+
+        conditioning = self.conditioning
+        real_actors_set = self.real_agents
+
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        self.backward_D()  # calculate gradients for D
+        loss_D, _ = self.get_D_losses(conditioning, real_actors_set)
+        loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
+
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        self.backward_G()  # calculate gradients for G
+        loss_G, _ = self.get_G_losses(conditioning)
+        loss_G.backward()  # calculate gradients for G
+        # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
 
     #########################################################################################
-
