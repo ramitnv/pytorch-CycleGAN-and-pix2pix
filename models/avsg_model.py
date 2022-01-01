@@ -256,9 +256,9 @@ class AvsgModel(BaseModel):
         # combine losses
         loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
-        losses_log = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct}
-        metrics_log = {"fake_actors": fake_actors, "d_out_for_fake": d_out_for_fake}
-        return loss_G, losses_log, metrics_log
+        log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct,
+                       "fake_actors": fake_actors, "d_out_for_fake": d_out_for_fake}
+        return loss_G, log_metrics
 
     #########################################################################################
 
@@ -274,7 +274,7 @@ class AvsgModel(BaseModel):
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, train_losses_D = self.get_D_losses(conditioning, real_actors)
+        loss_D, train_losses_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
 
@@ -282,18 +282,24 @@ class AvsgModel(BaseModel):
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        loss_G, train_losses_G = self.get_G_losses(conditioning, real_actors)
+        loss_G, log_metrics_G = self.get_G_losses(conditioning, real_actors)
         loss_G.backward()  # calculate gradients for G
         # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
 
         # Save for logging:
-        self.train_losses_G = train_losses_G
-        self.train_losses_D = train_losses_D
+        self.train_log_metrics_G = log_metrics_G
+        self.train_log_metrics_D = log_metrics_D
 
-    #########################################################################################
+
+        #########################################################################################
     def get_current_losses(self):
-       return self.train_losses_D | self.train_losses_G
+        losses_dict = {}
+        for name, val in self.train_log_metrics_G | self.train_log_metrics_D:
+            if name.startswith('loss'):
+                losses_dict[name] = val
+        return losses_dict
+
 
     #########################################################################################
     def forward(self):
