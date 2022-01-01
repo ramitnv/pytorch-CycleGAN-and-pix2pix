@@ -41,32 +41,8 @@ class AvsgModel(BaseModel):
 
         # ~~~~  Data
         parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
-
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                             help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
-
-        # ~~~~  Map features
-        parser.add_argument('--polygon_name_order', type=list,
-                            default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
-        parser.add_argument('--closed_polygon_types', type=list,
-                            default=['crosswalks'], help='')
-        parser.add_argument('--max_points_per_poly', type=int, default=20,
-                            help='Maximal number of points per polygon element')
-        # ~~~~  Agents features
-        parser.add_argument('--agent_feat_vec_coord_labels',
-                            default=['centroid_x',  # [0]  Real number
-                                     'centroid_y',  # [1]  Real number
-                                     'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                     'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                     'extent_length',  # [4] Real positive
-                                     'extent_width',  # [5] Real positive
-                                     'speed',  # [6] Real non-negative
-                                     'is_CAR',  # [7] 0 or 1
-                                     'is_CYCLIST',  # [8] 0 or 1
-                                     'is_PEDESTRIAN',  # [9]  0 or 1
-                                     ],
-                            type=list)
-        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
         # ~~~~  General model settings
         if is_train:
@@ -83,6 +59,7 @@ class AvsgModel(BaseModel):
             # ~~~~  Training optimization settings
             parser.set_defaults(
                 n_epochs=1000,
+                batch_size=64,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
                 lr_decay_iters=1000,  # if lr_policy==step'
@@ -90,9 +67,36 @@ class AvsgModel(BaseModel):
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
             )
             parser.add_argument('--lambda_reconstruct', type=float, default=1., help='weight for reconstruct_loss ')
-            parser.add_argument('--lambda_gp', type=float, default=100., help='weight for gradient penalty in WGANGP')
+            parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
+            parser.add_argument('--lambda_spect_norm_D', type=float, default=1., help=" ")
+            parser.add_argument('--lambda_spect_norm_G', type=float, default=1., help=" ")
 
+        # ~~~~  Map features
+        parser.add_argument('--polygon_name_order', type=list,
+                            default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
+        parser.add_argument('--closed_polygon_types', type=list,
+                            default=['crosswalks'], help='')
+        parser.add_argument('--max_points_per_poly', type=int, default=20,
+                            help='Maximal number of points per polygon element')
+
+        # ~~~~  Agents features
+        parser.add_argument('--agent_feat_vec_coord_labels',
+                            default=['centroid_x',  # [0]  Real number
+                                     'centroid_y',  # [1]  Real number
+                                     'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'extent_length',  # [4] Real positive
+                                     'extent_width',  # [5] Real positive
+                                     'speed',  # [6] Real non-negative
+                                     'is_CAR',  # [7] 0 or 1
+                                     'is_CYCLIST',  # [8] 0 or 1
+                                     'is_PEDESTRIAN',  # [9]  0 or 1
+                                     ],
+                            type=list)
+        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
+
+        if is_train:
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
@@ -185,6 +189,7 @@ class AvsgModel(BaseModel):
             # Our program will automatically call <model.setup> to define schedulers, load networks, and print networks
             self.gan_mode = opt.gan_mode
             self.lambda_gp = opt.lambda_gp
+            self.lambda_spect_norm_D = opt.lambda_spect_norm_D
             ## Debug
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
@@ -198,13 +203,13 @@ class AvsgModel(BaseModel):
     #     # if there are too few agents in the scene - skip it
     #     return len(agents_feat) <= self.num_agents
 
-    #########################################################################################
-    def set_input(self, data_buffer):
-        """Unpack input data from the dataloader and perform necessary pre-processing steps.
-        Parameters:
-            input: a dictionary that contains the data itself and its metadata information.
-        """
-        self.data_buffer = data_buffer
+    # #########################################################################################
+    # def set_input(self, data_buffer):
+    #     """Unpack input data from the dataloader and perform necessary pre-processing steps.
+    #     Parameters:
+    #         input: a dictionary that contains the data itself and its metadata information.
+    #     """
+    #     self.data_buffer = data_buffer
 
     #########################################################################################
 
@@ -230,15 +235,18 @@ class AvsgModel(BaseModel):
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors_set,
                                                    fake_agents_detached, self)
 
-        # combine losses
-        loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty
-        losses_log = {"loss_D":loss_D, "loss_D_classify_fake": loss_D_classify_fake,
-                      "loss_D_classify_real": loss_D_classify_real,
-                      "loss_D_grad_penalty": loss_D_grad_penalty}
-        metrics_log = {}
-        return loss_D, losses_log, metrics_log
+        loss_spect_norm_D = torch.nn.utils.parametrizations.spectral_norm(self.netD)
 
-        #########################################################################################
+        # combine losses
+        loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty \
+                 + self.lambda_spect_norm_D * loss_spect_norm_D
+
+        log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
+                       "loss_D_classify_real": loss_D_classify_real,
+                       "loss_D_grad_penalty": loss_D_grad_penalty}
+        return loss_D, log_metrics
+
+    #########################################################################################
 
     def get_G_losses(self, conditioning, real_actors):
         """Calculate loss terms for the generator"""
@@ -291,17 +299,13 @@ class AvsgModel(BaseModel):
         self.train_log_metrics_G = log_metrics_G
         self.train_log_metrics_D = log_metrics_D
 
+    #########################################################################################
 
-        #########################################################################################
     def get_current_losses(self):
         losses_dict = {}
-        for name, val in self.train_log_metrics_G | self.train_log_metrics_D:
+        for name, val in (self.train_log_metrics_G | self.train_log_metrics_D).items():
             if name.startswith('loss'):
                 losses_dict[name] = val
         return losses_dict
 
-
-    #########################################################################################
-    def forward(self):
-        return None
     #########################################################################################

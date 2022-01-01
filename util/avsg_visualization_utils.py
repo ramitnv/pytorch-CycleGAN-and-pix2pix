@@ -145,12 +145,12 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
         for scene_data in dataset:
             if map_id >= stats_n_maps:
                 break
-            real_actors, conditioning = pre_process_scene_data(scene_data, opt)
+            real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
 
             if map_id < vis_n_maps:
                 # Add an image of the map & real agents to wandb logs
                 log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
-                img, wandb_img = get_wandb_image(model, conditioning, real_actors, label='real_agents')
+                img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
                 visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label] = [wandb_img]
@@ -161,7 +161,7 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
                 # calculate the metrics for only for the first generated agents set per map:
                 if i_generator_run == 0:
                     # Feed real agents set to discriminator
-                    d_out_for_real = model.netD(conditioning, real_actors).detach()  # detach since we don't backpropp
+                    d_out_for_real = model.netD(conditioning, real_agents_vecs).detach()  # detach since we don't backpropp
                     # pred_is_real_for_real_binary = (pred_is_real_for_real > 0).to(torch.float32)
                     d_out_for_fake = model.netD(conditioning, fake_agents_vecs).detach()  # detach since we don't backpropp
                     # pred_is_real_for_fake_binary = (pred_is_real_for_fake > 0).to(torch.float32)
@@ -171,9 +171,9 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
                                                      target_is_real=True)  # D wants to correctly classsify
                     loss_G_GAN = model.criterionGAN(prediction=d_out_for_fake,
                                                     target_is_real=True)  # G tries to make D wrongly classify the fake sample (make D output "True"
-                    loss_G_reconstruct = model.criterion_reconstruct(fake_agents_vecs, real_actors)
+                    loss_G_reconstruct = model.criterion_reconstruct(fake_agents_vecs, real_agents_vecs)
 
-                    loss_D_grad_penalty = cal_gradient_penalty(model.netD, conditioning, real_actors,
+                    loss_D_grad_penalty = cal_gradient_penalty(model.netD, conditioning, real_agents_vecs,
                                                                fake_agents_vecs, model)
 
                     metrics[f'{dataset_name}/G/loss_GAN'][map_id] = loss_G_GAN

@@ -20,8 +20,7 @@ class SceneGenerator(nn.Module):
         self.agents_dec = get_agents_decoder(opt, self.device)
         # Debug - print parameter names:  [x[0] for x in self.named_parameters()]
         self.batch_size = opt.batch_size
-        if self.batch_size != 1:
-            raise NotImplementedError
+
 
     def forward(self, conditioning):
         """Standard forward"""
