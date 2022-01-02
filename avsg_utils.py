@@ -93,12 +93,6 @@ def pre_process_scene_data(scenes_batch, opt):
 #########################################################################################
 
 
-
-
-
-#########################################################################################
-
-
 def get_agents_descriptions(agents_feat_dicts):
     txt_descript = []
     for i, ag in enumerate(agents_feat_dicts):
