@@ -64,12 +64,12 @@ class SceneDiscriminator(nn.Module):
 
     def forward(self, conditioning, agents_feat_vecs):
         map_feat = conditioning['map_feat']
-        n_agents = conditioning['n_agents']
+        n_actors_in_scene = conditioning['n_actors_in_scene']
 
         """In case the number of agents in the conditioning is less than  max_num_agents 
         pad the input with zeros"""
-        if n_agents < self.max_num_agents:
-            pad = (0, 0, 0, self.max_num_agents - n_agents)
+        if agents_feat_vecs.shape[1] < self.max_num_agents:
+            pad = (0, 0, 0, self.max_num_agents - agents_feat_vecs.shape[1])
             agents_feat_vecs = nnf.pad(agents_feat_vecs, pad, mode='constant', value=0.0)
 
         """Standard forward."""
