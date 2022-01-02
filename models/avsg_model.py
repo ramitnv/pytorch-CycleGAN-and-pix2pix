@@ -59,7 +59,7 @@ class AvsgModel(BaseModel):
             # ~~~~  Training optimization settings
             parser.set_defaults(
                 n_epochs=1000,
-                batch_size=64,
+                batch_size=3,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
                 lr_decay_iters=1000,  # if lr_policy==step'
@@ -272,17 +272,14 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_parameters(self):
+    def optimize_parameters(self, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
-
-        data_buffer = self.data_buffer
-        real_actors, conditioning = data_buffer[0]
 
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, train_losses_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
+        loss_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
 

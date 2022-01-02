@@ -74,7 +74,7 @@ if __name__ == '__main__':
             model.train()
 
             # calculate loss functions, get gradients, update network weights:
-            model.optimize_parameters(scenes_batch)
+            model.optimize_parameters(real_actors, conditioning)
 
             # update learning rates (must be after first model update step):
             model.update_learning_rate()
