@@ -14,6 +14,10 @@ You need to implement the following functions:
 from data.base_dataset import BaseDataset, get_transform
 import pickle
 
+def avsg_data_collate(batch):
+    return None
+
+
 
 class AvsgDataset(BaseDataset):
     """A template dataset class for you to implement custom datasets."""
@@ -54,6 +58,7 @@ class AvsgDataset(BaseDataset):
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
         # self.transform = get_transform(opt)
         self.transform = []
+        self.collate_fn = avsg_data_collate
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.

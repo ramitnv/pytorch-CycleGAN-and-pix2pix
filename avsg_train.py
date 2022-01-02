@@ -71,8 +71,6 @@ if __name__ == '__main__':
             # unpack data from dataset and apply preprocessing:
             real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
 
-            # accumulate enough samples for the update step
-
             model.train()
 
             # calculate loss functions, get gradients, update network weights:
