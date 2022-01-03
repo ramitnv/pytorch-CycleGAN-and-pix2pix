@@ -5,7 +5,6 @@ import time
 import torch
 from . import util, html
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
-from models.networks import cal_gradient_penalty
 from util.avsg_visualization_utils import visualize_scene_feat
 
 try:
@@ -105,7 +104,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def print_current_metrics(self, model, validation_data_gen, i_epoch, i_epoch_iter, total_iters):
+    def print_current_metrics(self, model, opt, train_real_actors, train_conditioning, validation_data_gen, i_epoch, i_epoch_iter, total_iters):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -115,13 +114,28 @@ class Visualizer():
             losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
 
         """
+        model.eval()
+
         train_metrics_G = model.train_log_metrics_G
         train_metrics_D = model.train_log_metrics_D
 
         validation_batch = next(validation_data_gen)
-        real_actors, conditioning = pre_process_scene_data(validation_batch, model.opt)
-        _, val_metrics_G = model.get_G_losses(conditioning, real_actors)
-        _, val_metrics_D = model.get_D_losses(conditioning, real_actors)
+        val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
+        _, val_metrics_G = model.get_G_losses(val_conditioning, val_real_actors)
+        _, val_metrics_D = model.get_D_losses(val_conditioning, val_real_actors)
+
+        # add some more metrics
+
+        # sample several fake agents per map to calculate G out variance
+        for conditioning, metrics_dict in [(train_conditioning, train_metrics_G), (val_conditioning, val_metrics_G)]:
+            samples_fake_agents_vecs = []
+            for i_generator_run in range(opt.G_variability_n_ru):
+                samples_fake_agents_vecs.append(model.netG(conditioning).detach())
+            samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
+            # calculate variance across samples:
+            feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
+            # Average all output coordinates:
+            metrics_dict['G_out_variability'] = feat_var_across_samples.mean()
 
         # print to console
         message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) '
@@ -144,6 +158,9 @@ class Visualizer():
                 for net_type, metrics in data_metrics:
                     for name, v in metrics.items():
                         self.wandb_run.log({f'{data_type}/{net_type}/{name}': v})
+
+        if opt.isTrain:
+            model.train()
     ##############################################################################################
 
 
@@ -155,10 +172,8 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
     wandb_logs = {}
     visuals_dict = {}
     model.eval()
-    stats_n_maps = opt.stats_n_maps  # how many maps to average over the metrics
     vis_n_maps = opt.vis_n_maps  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
-    g_var_n_generator_runs = opt.g_var_n_generator_runs  # how many sampled fake agents per map to caclulate G out variance
 
     metrics = dict()
     metrics_type_names = ['G/out_variability', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
@@ -168,15 +183,11 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
     for dataset_name, dataset in datasets.items():
         metrics_names = [f'{dataset_name}/{type_name}' for type_name in metrics_type_names]
 
-        for metric_name in metrics_names:
-            metrics[metric_name] = np.zeros(stats_n_maps)
-
         assert vis_n_generator_runs >= 1
         map_id = 0
         log_label = 'null'
         for scene_data in dataset:
-            if map_id >= stats_n_maps:
-                break
+
             real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
 
             if map_id < vis_n_maps:
@@ -198,7 +209,7 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
                         wandb_logs[log_label].append(wandb_img)
 
             samples_fake_agents_vecs = []
-            for i_generator_run in range(g_var_n_generator_runs):
+            for i_generator_run in range(G_variability_n_runs):
                 samples_fake_agents_vecs.append(model.netG(conditioning).detach())
             samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
             # calculate variance across samples:

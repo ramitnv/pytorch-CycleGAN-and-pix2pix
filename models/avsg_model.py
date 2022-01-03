@@ -133,8 +133,7 @@ class AvsgModel(BaseModel):
                 display_freq=500)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=3, help='')
-            parser.add_argument('--stats_n_maps', type=int, default=10, help='')
-            parser.add_argument('--g_var_n_generator_runs', type=int, default=5, help='')
+            parser.add_argument('--G_variability_n_runs', type=int, default=5, help='')
         return parser
 
     #########################################################################################
@@ -155,7 +154,6 @@ class AvsgModel(BaseModel):
         self.polygon_name_order = opt.polygon_name_order
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
-        self.opt = opt
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
