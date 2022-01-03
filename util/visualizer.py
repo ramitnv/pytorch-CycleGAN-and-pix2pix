@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import ntpath
 import time
@@ -15,7 +14,7 @@ except ImportError:
 
 ##############################################################################################
 
-class Visualizer():
+class Visualizer:
     """This class includes several functions that can display/save images and print/save logging information.
 
     It uses   a Python library 'dominate' (wrapped in 'HTML') for creating HTML files with images.
@@ -88,12 +87,8 @@ class Visualizer():
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {}
-        run_metrics['i_epoch'] = i_epoch
-        run_metrics['i_batch'] = i_batch
-        run_metrics['tot_iters'] = tot_iters
-        run_metrics['LR'] = model.lr
-        run_metrics['run_hours'] = (time.time() - run_start_time) / 60 ** 2
+        run_metrics = {'i_epoch': i_epoch, 'i_batch': i_batch, 'tot_iters': tot_iters, 'LR': model.lr,
+                       'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
         for conditioning, metrics_dict in [(train_conditioning, train_metrics_G), (val_conditioning, val_metrics_G)]:
