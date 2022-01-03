@@ -21,6 +21,9 @@ from .base_model import BaseModel
 from . import networks
 from avsg_utils import pre_process_scene_data
 from models.networks import cal_gradient_penalty
+import torch.nn.utils.parametrize as nnp
+
+
 #########################################################################################
 
 
@@ -37,13 +40,38 @@ class AvsgModel(BaseModel):
             the modified parser.
         """
 
-
         # ~~~~  Data
         parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
-
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                             help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
 
+        # ~~~~  General model settings
+        if is_train:
+            parser.set_defaults(gan_mode='wgangp',  # 'the type of GAN objective. [vanilla| lsgan | wgangp].
+                                # vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
+                                netD='SceneDiscriminator',
+                                netG='SceneGenerator')
+            parser.add_argument('--agents_decoder_model', type=str,
+                                default='MLP')  # | 'MLP' | 'LSTM'
+            # parser.add_argument('--num_samples_pack', type=int,
+            #                     default=1)  # accumulate  m samples to classify with D (as in PacGAN)
+
+        if is_train:
+            # ~~~~  Training optimization settings
+            parser.set_defaults(
+                n_epochs=100,
+                batch_size=8,
+                lr=0.02,
+                lr_policy='constant',  # [linear | step | plateau | cosine | constant]
+                lr_decay_iters=1000,  # if lr_policy==step'
+                lr_decay_factor=0.9,  # if lr_policy==step'
+                num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
+            )
+            parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
+            parser.add_argument('--lambda_reconstruct', type=float, default=1., help='weight for reconstruct_loss ')
+            parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
+            parser.add_argument('--lambda_spect_norm_D', type=float, default=1., help=" ")
+            parser.add_argument('--lambda_spect_norm_G', type=float, default=1., help=" ")
 
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
@@ -52,6 +80,7 @@ class AvsgModel(BaseModel):
                             default=['crosswalks'], help='')
         parser.add_argument('--max_points_per_poly', type=int, default=20,
                             help='Maximal number of points per polygon element')
+
         # ~~~~  Agents features
         parser.add_argument('--agent_feat_vec_coord_labels',
                             default=['centroid_x',  # [0]  Real number
@@ -68,32 +97,7 @@ class AvsgModel(BaseModel):
                             type=list)
         parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
-        # ~~~~  General model settings
         if is_train:
-            parser.set_defaults(gan_mode='wgangp',  # 'the type of GAN objective. [vanilla| lsgan | wgangp].
-                                # vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
-                                netD='SceneDiscriminator',
-                                netG='SceneGenerator')
-            parser.add_argument('--agents_decoder_model', type=str,
-                                default='MLP')  # | 'MLP' | 'LSTM'
-            # parser.add_argument('--num_samples_pack', type=int,
-            #                     default=1)  # accumulate  m samples to classify with D (as in PacGAN)
-
-
-        if is_train:
-            # ~~~~  Training optimization settings
-            parser.set_defaults(
-                n_epochs=1000,
-                lr=0.02,
-                lr_policy='constant',  # [linear | step | plateau | cosine | constant]
-                lr_decay_iters=1000,  # if lr_policy==step'
-                lr_decay_factor=0.9,  # if lr_policy==step'
-                num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
-            )
-            parser.add_argument('--lambda_reconstruct', type=float, default=1., help='weight for reconstruct_loss ')
-            parser.add_argument('--lambda_gp', type=float, default=100., help='weight for gradient penalty in WGANGP')
-            parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
-
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
@@ -125,13 +129,11 @@ class AvsgModel(BaseModel):
 
             # ~~~~ Display settings
             parser.set_defaults(
-                display_freq=200,
-                update_html_freq=200,
-                display_id=0)
+                print_freq=10,
+                display_freq=50)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=3, help='')
-            parser.add_argument('--stats_n_maps', type=int, default=10, help='')
-            parser.add_argument('--g_var_n_generator_runs', type=int, default=5, help='')
+            parser.add_argument('--G_variability_n_runs', type=int, default=5, help='')
         return parser
 
     #########################################################################################
@@ -152,10 +154,6 @@ class AvsgModel(BaseModel):
         self.polygon_name_order = opt.polygon_name_order
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
-        self.opt = opt
-        # specify the training losses you want to print out.
-        # The program will call base_model.get_current_losses to plot the losses to the console and save them to the disk.
-        self.loss_names = ['G_GAN', 'G_reconstruct', 'D_real', 'D_fake', 'D_grad_penalty']
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -186,104 +184,99 @@ class AvsgModel(BaseModel):
             # Our program will automatically call <model.setup> to define schedulers, load networks, and print networks
             self.gan_mode = opt.gan_mode
             self.lambda_gp = opt.lambda_gp
+            self.lambda_spect_norm_D = opt.lambda_spect_norm_D
             ## Debug
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
-            ##
-    #########################################################################################
-    # def is_sample_valid(self, scene_data):
-    #     assert isinstance(scene_data, dict)  # assume batch_size == 1, where the sample is a dict of one scene
-    #     agents_feat = scene_data['agents_feat']
-    #     # if there are too few agents in the scene - skip it
-    #     return len(agents_feat) <= self.num_agents
-
-    #########################################################################################
-    def set_input(self, scene_data):
-        """Unpack input data from the dataloader and perform necessary pre-processing steps.
-        Parameters:
-            input: a dictionary that contains the data itself and its metadata information.
-        """
-        self.real_agents, map_feat, self.conditioning = pre_process_scene_data(scene_data, self.opt)
         #########################################################################################
 
-        # self.conditioning = []
-        # self.real_agents = []
-        # # for i, scene_data in enumerate(data_buffer):
-        #     real_agents, map_feat, conditioning = pre_process_scene_data(scene_data, self.opt)
-        #     self.real_agents.append(real_agents)
-        #     self.conditioning.append(conditioning)
 
-    #########################################################################################
-
-    def forward(self):
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
-        # generate the output of the generator given the input map
-        self.fake_agents = self.netG(self.conditioning)
-
-    #########################################################################################
-
-    def backward_D(self):
-        """Calculate GAN loss for the discriminator"""
+    def get_D_losses(self, conditioning, real_actors):
+        """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
-
+        fake_agents = self.netG(conditioning)
 
         # Feed fake agents to discriminator and calculate its prediction loss
-        fake_agents_detached = self.fake_agents.detach()  # stop backprop to the generator by detaching
-        d_out_for_fake = self.netD(self.conditioning, fake_agents_detached)
+        fake_agents_detached = fake_agents.detach()  # stop backprop to the generator by detaching
+        d_out_for_fake = self.netD(conditioning, fake_agents_detached)
 
         # the loss is 0 if D correctly classify as fake
-        self.loss_D_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
+        loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        pred_is_real_for_real = self.netD(self.conditioning, self.real_agents)
+        d_out_for_real = self.netD(conditioning, real_actors)
 
         # the loss is 0 if D correctly classify as not fake
-        self.loss_D_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
+        loss_D_classify_real = self.criterionGAN(prediction=d_out_for_real, target_is_real=True)
 
+        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
+                                                   fake_agents_detached, self)
 
-        self.loss_D_grad_penalty = cal_gradient_penalty(self.netD, self.conditioning, self.real_agents,
-                                                        fake_agents_detached, self)
+        # snm = torch.nn.utils.parametrizations.spectral_norm(self.netD)
+        # loss_spect_norm_D = torch.linalg.matrix_norm(snm.weight, 2)
+        loss_spect_norm_D = 0
 
-        # combine loss and calculate gradients
-        self.loss_D = self.loss_D_fake + self.loss_D_real + self.lambda_gp * self.loss_D_grad_penalty
-        self.loss_D.backward()
+        # combine losses
+        loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty \
+                 + self.lambda_spect_norm_D * loss_spect_norm_D
+
+        log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
+                       "loss_D_classify_real": loss_D_classify_real, "loss_D_grad_penalty": loss_D_grad_penalty,
+                       "D_logit(real)": d_out_for_real, "D_logit(fake_detach)": d_out_for_fake}
+        log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
+        return loss_D, log_metrics
 
     #########################################################################################
 
-    def backward_G(self):
-        """Calculate GAN and L1 loss for the generator"""
-        #  the generator should fool the discriminator
-        d_out_for_fake = self.netD(self.conditioning, self.fake_agents)
-        # G wants to make D wrongly classify the fake sample (make D output "True")
-        self.loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
+    def get_G_losses(self, conditioning, real_actors):
+        """Calculate loss terms for the generator"""
+
+        fake_actors = self.netG(conditioning)
+
+        d_out_for_fake = self.netD(conditioning, fake_actors)
+
+        # G aims to fool D to wrongly classify the fake sample (make D output "True")
+        loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
-        self.loss_G_reconstruct = self.criterion_reconstruct(self.fake_agents, self.real_agents)
+        loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
 
-        # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_reconstruct * self.opt.lambda_reconstruct
+        # combine losses
+        loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
-        self.loss_G.backward()
+        log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct,
+                       "D_logit(fake)": d_out_for_fake}
+        log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
+        return loss_G, log_metrics
 
     #########################################################################################
 
-    def optimize_parameters(self):
+    #########################################################################################
+
+    def optimize_parameters(self, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
-        self.forward()  # compute fake images: G(A)
+
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        self.backward_D()  # calculate gradients for D
+        loss_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
+        loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
+
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        self.backward_G()  # calculate gradients for G
+        loss_G, log_metrics_G = self.get_G_losses(conditioning, real_actors)
+        loss_G.backward()  # calculate gradients for G
+        # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
 
-    #########################################################################################
+        # Save for logging:
+        self.train_log_metrics_G = log_metrics_G
+        self.train_log_metrics_D = log_metrics_D
 
+    #########################################################################################

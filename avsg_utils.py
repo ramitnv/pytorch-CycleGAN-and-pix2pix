@@ -6,6 +6,7 @@ import torch
 
 
 def agents_feat_vecs_to_dicts(agents_feat_vecs):
+    assert agents_feat_vecs.ndim == 2
     agents_feat_dicts = []
     n_agents = agents_feat_vecs.shape[0]
     for i_agent in range(n_agents):
@@ -24,45 +25,11 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs):
 #########################################################################################
 
 
-def agents_feat_dicts_to_vecs(agent_feat_vec_coord_labels, agents_feat_dicts, device):
-    dim_agent_feat_vec = len(agent_feat_vec_coord_labels)
-    assert agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y', 'yaw_cos', 'yaw_sin',
-                                           'extent_length', 'extent_width', 'speed',
-                                           'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
-    agents_feat_vecs = []
-    for agent_dict in agents_feat_dicts:
-        agent_feat_vec = torch.zeros(dim_agent_feat_vec, device=device)
-        assert agent_dict['centroid'].shape == torch.Size([1, 2])
-        agent_feat_vec[0] = agent_dict['centroid'][0, 0]
-        agent_feat_vec[1] = agent_dict['centroid'][0, 1]
-        agent_feat_vec[2] = torch.cos(agent_dict['yaw'])
-        agent_feat_vec[3] = torch.sin(agent_dict['yaw'])
-        assert agent_dict['extent'].shape == torch.Size([1, 2])
-        agent_feat_vec[4] = agent_dict['extent'][0, 0]
-        agent_feat_vec[5] = agent_dict['extent'][0, 1]
-        agent_feat_vec[6] = agent_dict['speed']
-        # agent type ['CAR', 'CYCLIST', 'PEDESTRIAN'] is represented in one-hot encoding
-        agent_feat_vec[7] = agent_dict['agent_label_id'] == 0
-        agent_feat_vec[8] = agent_dict['agent_label_id'] == 1
-        agent_feat_vec[9] = agent_dict['agent_label_id'] == 2
-        assert agent_feat_vec[7:].sum() == 1
-        agents_feat_vecs.append(agent_feat_vec)
-    agents_feat_vecs = torch.stack(agents_feat_vecs)
-    return agents_feat_vecs
 
+def pre_process_scene_data(scenes_batch, opt):
 
-#########################################################################################
-
-
-def pre_process_scene_data(scene_data, opt):
-
-
-    n_agents  = len(scene_data['agents_feat'])
-
-    n_agents = min(n_agents, opt.max_num_agents) # we will take only up to max_num_agents agents from the scene
-
+    batch_len = len(scenes_batch['n_actors_in_scene'])
     agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-    polygon_name_order = opt.polygon_name_order
     device = opt.device
     # We assume this order of coordinates:
     assert agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y',
@@ -70,101 +37,60 @@ def pre_process_scene_data(scene_data, opt):
                                            'extent_length', 'extent_width', 'speed',
                                            'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
 
-    agents_feat_vecs = filter_and_preprocess_agent_feat(
-        scene_data['agents_feat'],
-        n_agents, agent_feat_vec_coord_labels,
-        device)
+    for i_scene in range(batch_len):
+        if opt.augmentation_type == 'none':
+            pass
+        elif opt.augmentation_type == 'rotate_and_translate':
 
-    # Map features - Move to device
-    map_feat = dict()
-    for poly_type in polygon_name_order:
-        map_feat[poly_type] = []
-        poly_elems = scene_data['map_feat'][poly_type]
-        map_feat[poly_type] = [poly_elem.to(device) for poly_elem in poly_elems]
+            # --------------------------------------
+            # Random augmentation: rotation & translation
+            # --------------------------------------
+            aug_rot = np.random.rand(1).squeeze() * 2 * np.pi
+            rot_mat = np.array([[np.cos(aug_rot), -np.sin(aug_rot)],
+                                [np.sin(aug_rot), np.cos(aug_rot)]])
+            rot_mat = torch.from_numpy(rot_mat).to(device=device, dtype=torch.float32)
 
-    if opt.augmentation_type == 'none':
-        pass
-    elif opt.augmentation_type == 'rotate_and_translate':
-        # --------------------------------------
-        # Random augmentation: rotation & translation
-        # --------------------------------------
-        aug_rot = np.random.rand(1).squeeze() * 2 * np.pi
-        rot_mat = np.array([[np.cos(aug_rot), -np.sin(aug_rot)],
-                            [np.sin(aug_rot), np.cos(aug_rot)]])
-        rot_mat = torch.from_numpy(rot_mat).to(device=device, dtype=torch.float32)
+            pos_shift_std = 50  # [m]
+            pos_shift = torch.rand(2, device=device) * pos_shift_std
 
-        pos_shift_std = 50  # [m]
-        pos_shift = torch.rand(2, device=device) * pos_shift_std
+            agents_feat_vecs = scenes_batch['agents_feat'][i_scene]
 
-        for ag in agents_feat_vecs:
-            # Rotate the centroid (x,y)
-            ag[:2] = rot_mat @ ag[:2]
-            # Rotate the yaw angle (in unit vec form)
-            ag[2:4] = rot_mat @ ag[2:4]
-            # Translate centroid
-            ag[:2] += pos_shift
+            for ag in agents_feat_vecs:
+                # Rotate the centroid (x,y)
+                ag[:2] = rot_mat @ ag[:2]
+                # Rotate the yaw angle (in unit vec form)
+                ag[2:4] = rot_mat @ ag[2:4]
+                # Translate centroid
+                ag[:2] += pos_shift
 
-        for poly_type in map_feat.keys():
-            for i_elem, poly_elem in enumerate(map_feat[poly_type]):
-                for i_point in range(poly_elem.shape[1]):
-                    poly_elem[0, i_point, :] = rot_mat @ poly_elem[0, i_point, :]
-                map_feat[poly_type][i_elem] = poly_elem
-                map_feat[poly_type][i_elem] += pos_shift
-    elif opt.augmentation_type == 'Gaussian_data':
-        # Replace all the agent features data to gaussian samples... for debug
-        agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
-        # Set zero to all map features
-        for poly_type in map_feat.keys():
-            for i_elem, poly_elem in enumerate(map_feat[poly_type]):
-                map_feat[poly_type][i_elem] *= 0.
-        ####### Debug ###
-        # import matplotlib.pyplot as plt
-        # n_bins = 10
-        # hist, bin_edges = torch.histogram(agents_feat_vecs, bins=n_bins)
-        # plt.bar(0.5 * (bin_edges[1:] + bin_edges[:-1]), hist, align='center')
-        # plt.xlabel('Bins')
-        # plt.ylabel('Frequency')
-        # plt.show()
-        ####### Debug ###
+            scenes_batch['agents_feat'][i_scene] = agents_feat_vecs
 
-    else:
-        raise NotImplementedError(f'Unrecognized opt.augmentation_type  {opt.augmentation_type}')
-    real_agents = agents_feat_vecs
-    conditioning = {'map_feat': map_feat, 'n_agents': n_agents}
-    return real_agents, map_feat, conditioning
-#########################################################################################
+            for poly_type in opt.polygon_name_order:
+                elems = scenes_batch['map_feat'][poly_type][i_scene]
+                for i_elem, poly_elem in enumerate(elems):
+                    for i_point, point in enumerate(poly_elem):
+                        if scenes_batch['map_feat'][poly_type+'_valid'][i_scene, i_elem, i_point]:
+                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] = rot_mat @ point
+                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] += pos_shift
 
+        elif opt.augmentation_type == 'Gaussian_data':
+            # Replace all the agent features data to gaussian samples... for debug
+            agents_feat_vecs = scenes_batch['agents_feat'][i_scene]
+            agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
+            scenes_batch['agents_feat'][i_scene] = agents_feat_vecs
+            # Set zero to all map features
+            for poly_type in opt.polygon_name_order:
+                elems = scenes_batch['map_feat'][poly_type][i_scene]
+                for i_elem, poly_elem in elems:
+                    for i_point, point in enumerate(poly_elem):
+                        if scenes_batch['map_feat'][poly_type + '_valid'][i_scene, i_elem, i_point]:
+                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] *= 0
 
-#########################################################################################
-
-
-def filter_and_preprocess_agent_feat(agent_feat, n_agents, agent_feat_vec_coord_labels, device):
-    # We assume this order of coordinates:
-    assert agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y',
-                                           'yaw_cos', 'yaw_sin',
-                                           'extent_length', 'extent_width', 'speed',
-                                           'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
-
-    # --------------------------------------
-    # Filter out the selected agents
-    # --------------------------------------
-
-    # Agent features -
-    agent_dists_to_ego = [np.linalg.norm(agent_dict['centroid'][0, :]) for agent_dict in agent_feat]
-
-    # Change to vector form, Move to device
-    agents_feat_vecs = agents_feat_dicts_to_vecs(agent_feat_vec_coord_labels,
-                                                 agent_feat,
-                                                 device)
-    agents_dists_order = np.argsort(agent_dists_to_ego)
-
-    agents_inds = agents_dists_order[:n_agents]  # take the closest agent to the ego
-    np.random.shuffle(agents_inds)  # shuffle so that the ego won't always be first
-    agents_feat_vecs = agents_feat_vecs[agents_inds]
-
-    return agents_feat_vecs
-
-
+        else:
+            raise NotImplementedError(f'Unrecognized opt.augmentation_type  {opt.augmentation_type}')
+    conditioning = {'map_feat': scenes_batch['map_feat'], 'n_actors_in_scene': scenes_batch['n_actors_in_scene']}
+    real_actors = scenes_batch['agents_feat']
+    return real_actors, conditioning
 #########################################################################################
 
 

@@ -77,9 +77,8 @@ class AvsgCheckMapEncModel(BaseModel):
 
             # ~~~~ Display settings
             parser.set_defaults(
-                display_freq=200,
-                update_html_freq=200,
-                display_id=0)
+                print_freq=100,
+                display_freq=500)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=4, help='')
 

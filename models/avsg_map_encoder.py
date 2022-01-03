@@ -36,9 +36,9 @@ class PolygonEncoder(nn.Module):
         """Standard forward
         input [1 x n_points  x 2 coordinates]
         """
-        assert poly_points.shape[0] == 1  # assume batch_size=1
-
         # fit to conv1d input dimensions [batch_size=1  x in_channels=2  x n_points]
+        while poly_points.ndim < 3:
+            poly_points = poly_points.unsqueeze(dim=0)
         h = torch.permute(poly_points, (0, 2, 1))
 
         if not self.is_closed:
@@ -103,13 +103,19 @@ class MapEncoder(nn.Module):
         for i_poly_type, poly_type in enumerate(self.polygon_name_order):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
-            poly_elements = map_feat[poly_type]
-            if len(poly_elements) == 0:
+            poly_elements_valid = map_feat[poly_type+'_valid']
+            if poly_elements_valid.ndim == 1:
+                poly_elements_valid = poly_elements_valid.unsqueeze(0)
+            poly_n_points_per_element = poly_elements_valid.sum(dim=1)
+            if poly_n_points_per_element.sum() == 0:
                 # if there are no polygon of this type in the scene:
                 latent_poly_type = torch.zeros(self.dim_latent_polygon_type, device=self.device)
             else:
                 poly_latent_per_elem = []
-                for poly_elem in poly_elements:
+                for i_elem, n_points in enumerate(poly_n_points_per_element):
+                    if n_points == 0:
+                        continue
+                    poly_elem = map_feat[poly_type][i_elem][:n_points]
                     # Transform from sequence of points to a fixed size vector,
                     # using a circular-shift-invariant module
                     poly_elem_latent = poly_encoder(poly_elem)
