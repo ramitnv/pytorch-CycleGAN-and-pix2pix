@@ -79,8 +79,8 @@ if __name__ == '__main__':
                                                  tot_iters, run_start_time)
             # Display visualizations:
             if tot_iters % opt.display_freq == 0:
-                visualizer.display_current_results(model,  real_actors, conditioning, validation_data_gen, opt, i_epoch, i_batch,
-                                                   tot_iters, run_start_time)
+                visualizer.display_current_results(model,  real_actors, conditioning, validation_data_gen, opt, i_epoch,
+                                                   i_batch, tot_iters)
 
             # cache our latest model every <save_latest_freq> iterations:
             if tot_iters % opt.save_latest_freq == 0:

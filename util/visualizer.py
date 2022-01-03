@@ -151,7 +151,7 @@ class Visualizer:
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
             for ind in self.plotted_inds[::-1]:
-                webpage.add_header(f'epoch {ind[0]}, iter {ind[1]}')
+                webpage.add_header(f'tot_iter {ind}')
                 ims, txts, links = [], [], []
                 for label, image_numpy in visuals_dict.items():
                     img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
@@ -197,7 +197,7 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
                 wandb_logs[log_label] = [wandb_img]
 
             for i_generator_run in range(vis_n_generator_runs):
-                fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
+                fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
 
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')

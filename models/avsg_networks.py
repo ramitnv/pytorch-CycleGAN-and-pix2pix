@@ -26,10 +26,11 @@ class SceneGenerator(nn.Module):
         n_actors_in_scene = conditioning['n_actors_in_scene']
         if isinstance(n_actors_in_scene, int):
             n_actors_in_scene = [n_actors_in_scene]
+        batch_len = len(n_actors_in_scene)
         max_n_actors = max(n_actors_in_scene)
-        agents_feat_vecs_all = torch.zeros((self.batch_size, max_n_actors, self.dim_agent_feat_vec), device=self.device)
+        agents_feat_vecs_all = torch.zeros((batch_len, max_n_actors, self.dim_agent_feat_vec), device=self.device)
         # iterate over batch:
-        for i_scene in range(self.batch_size):
+        for i_scene in range(batch_len):
             map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in conditioning['map_feat'].keys()}
             map_latent = self.map_enc(map_feat)
             latent_noise_std = 1.0

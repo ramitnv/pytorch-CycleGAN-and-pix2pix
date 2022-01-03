@@ -6,6 +6,7 @@ import torch
 
 
 def agents_feat_vecs_to_dicts(agents_feat_vecs):
+    assert agents_feat_vecs.ndim == 2
     agents_feat_dicts = []
     n_agents = agents_feat_vecs.shape[0]
     for i_agent in range(n_agents):
