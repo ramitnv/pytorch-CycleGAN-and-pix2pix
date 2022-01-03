@@ -36,10 +36,10 @@ def plot_lanes(ax, left_lanes, right_lanes, facecolor='0.4', alpha=0.3, edgecolo
     n_elems = min(len(left_lanes), len(right_lanes))
     first_plt = True
     for i in range(n_elems):
-        x_left = left_lanes[i][0, :, 0]
-        y_left = left_lanes[i][0, :, 1]
-        x_right = right_lanes[i][0, :, 0]
-        y_right = right_lanes[i][0, :, 1]
+        x_left = left_lanes[i][:, 0]
+        y_left = left_lanes[i][:, 1]
+        x_right = right_lanes[i][:, 0]
+        y_right = right_lanes[i][:, 1]
         x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
         y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
         if first_plt:
