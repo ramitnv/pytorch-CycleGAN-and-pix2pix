@@ -78,11 +78,7 @@ class Visualizer():
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch,
                                                                 i_epoch_iter, total_iters, run_start_time)
-        if self.use_wandb:
-            if fig_index != self.current_fig_index:
-                self.current_fig_index = fig_index
-                for log_label, log_data in wandb_logs.items():
-                    self.wandb_run.log({log_label: log_data})
+
 
         # save images to an HTML file if they haven't been saved.
         if self.use_html and not self.saved:
@@ -130,17 +126,26 @@ class Visualizer():
 
         message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) '
         message += 'Train: '
-        for name, val in train_metrics.items():
-            message += f'{name}: {val:.2f} '
+        for name, v in train_metrics.items():
+            message += f'{name}: {v:.2f} '
 
         message += '\nValidation: '
-        for name, val in metrics_dict.items():
-            message += f'{name}: {val:.2f} '
+        for name, v in val_metrics.items():
+            message += f'{name}: {v:.2f} '
 
-        print(message)  # print the message
+        # print the message
+        print(message)
+
+        # update wandb charts
+        if self.use_wandb:
+            for name, v in train_metrics.items():
+                self.wandb_run.log({f'train/{name}': v})
+            for name, v in val_metrics_G.items():
+                self.wandb_run.log({f'val/{name}': v})
+
+        # save log file
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
-
 
 ##############################################################################################
 

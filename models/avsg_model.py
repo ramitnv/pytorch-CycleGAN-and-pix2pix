@@ -208,10 +208,10 @@ class AvsgModel(BaseModel):
         loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        pred_is_real_for_real = self.netD(conditioning, real_actors)
+        d_out_for_real = self.netD(conditioning, real_actors)
 
         # the loss is 0 if D correctly classify as not fake
-        loss_D_classify_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
+        loss_D_classify_real = self.criterionGAN(prediction=d_out_for_real, target_is_real=True)
 
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
                                                    fake_agents_detached, self)
@@ -225,8 +225,8 @@ class AvsgModel(BaseModel):
                  + self.lambda_spect_norm_D * loss_spect_norm_D
 
         log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
-                       "loss_D_classify_real": loss_D_classify_real,
-                       "loss_D_grad_penalty": loss_D_grad_penalty}
+                       "loss_D_classify_real": loss_D_classify_real, "loss_D_grad_penalty": loss_D_grad_penalty,
+                       "D_logit(real)": d_out_for_real, "D_logit(fake)": d_out_for_fake}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
         return loss_D, log_metrics
 
