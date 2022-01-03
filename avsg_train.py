@@ -96,5 +96,5 @@ if __name__ == '__main__':
             model.save_networks('latest')
             model.save_networks(i_epoch)
 
-        print(f'End of epoch {i_epoch}/{opt.n_epochs + opt.n_epochs_decay}'
+        print(f'End of epoch {i_epoch+1}/{opt.n_epochs + opt.n_epochs_decay}'
               f', epoch run time {(time.time() - epoch_start_time):.2f} sec')
