@@ -154,7 +154,7 @@ class Visualizer:
                 webpage.add_header(f'tot_iter {ind}')
                 ims, txts, links = [], [], []
                 for label, image_numpy in visuals_dict.items():
-                    img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
+                    img_path = f'iter{ind}_{label}.{file_type}'
                     ims.append(img_path)
                     txts.append(label)
                     links.append(img_path)
