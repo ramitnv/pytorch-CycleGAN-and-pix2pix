@@ -21,6 +21,7 @@ from .base_model import BaseModel
 from . import networks
 from avsg_utils import pre_process_scene_data
 from models.networks import cal_gradient_penalty
+import torch.nn.utils.parametrize as nnp
 
 
 #########################################################################################
@@ -235,7 +236,9 @@ class AvsgModel(BaseModel):
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors_set,
                                                    fake_agents_detached, self)
 
-        loss_spect_norm_D = torch.nn.utils.parametrizations.spectral_norm(self.netD)
+        # snm = torch.nn.utils.parametrizations.spectral_norm(self.netD)
+        # loss_spect_norm_D = torch.linalg.matrix_norm(snm.weight, 2)
+        loss_spect_norm_D = 0
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty \

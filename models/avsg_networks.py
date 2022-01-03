@@ -45,6 +45,7 @@ class SceneDiscriminator(nn.Module):
     def __init__(self, opt):
         super(SceneDiscriminator, self).__init__()
         self.device = opt.device
+        self.batch_size = opt.batch_size
         self.max_num_agents = opt.max_num_agents
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
@@ -63,7 +64,6 @@ class SceneDiscriminator(nn.Module):
                            opt=opt)
 
     def forward(self, conditioning, agents_feat_vecs):
-        map_feat = conditioning['map_feat']
         n_actors_in_scene = conditioning['n_actors_in_scene']
 
         """In case the number of agents in the conditioning is less than  max_num_agents 
@@ -72,11 +72,15 @@ class SceneDiscriminator(nn.Module):
             pad = (0, 0, 0, self.max_num_agents - agents_feat_vecs.shape[1])
             agents_feat_vecs = nnf.pad(agents_feat_vecs, pad, mode='constant', value=0.0)
 
-        """Standard forward."""
-        map_latent = self.map_enc(map_feat)
-        agents_latent = self.agents_enc(agents_feat_vecs)
-        scene_latent = torch.cat([map_latent, agents_latent])
-        pred_fake = self.out_mlp(scene_latent)
+        # iterate over batch:
+        pred_fake = []
+        for i_scene in range(self.batch_size):
+            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in conditioning['map_feat'].keys()}
+            map_latent = self.map_enc(map_feat)
+            agents_latent = self.agents_enc(agents_feat_vecs[i_scene])
+            scene_latent = torch.cat([map_latent, agents_latent])
+            pred_fake.append(self.out_mlp(scene_latent))
+        pred_fake = torch.stack(pred_fake)
         ''' 
         Note: Do not use sigmoid as the last layer of Discriminator.
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
