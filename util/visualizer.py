@@ -109,7 +109,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def print_current_metrics(self, model, i_epoch, i_epoch_iter, total_iters):
+    def print_current_metrics(self, model, eval_dataset, i_epoch, i_epoch_iter, total_iters):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -119,10 +119,21 @@ class Visualizer():
             losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
 
         """
-        metrics_dict = model.train_log_metrics_G | model.train_log_metrics_D
-        # metrics = model.get_current_losses()
+        train_metrics = model.train_log_metrics_G | model.train_log_metrics_D
 
-        message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) Current losses: '
+        scenes_batch = next(eval_dataset)
+        real_actors, conditioning = pre_process_scene_data(scenes_batch, model.opt)
+        _, val_metrics_G = model.get_G_losses(conditioning, real_actors)
+        _, val_metrics_D = model.get_D_losses(conditioning, real_actors)
+
+        val_metrics = val_metrics_G | val_metrics_D
+
+        message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) '
+        message += 'Train: '
+        for name, val in train_metrics.items():
+            message += f'{name}: {val:.2f} '
+
+        message += '\nValidation: '
         for name, val in metrics_dict.items():
             message += f'{name}: {val:.2f} '
 

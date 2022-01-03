@@ -156,9 +156,6 @@ class AvsgModel(BaseModel):
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
         self.opt = opt
-        # specify the training losses you want to print out.
-        # The program will call base_model.get_current_losses to plot the losses to the console and save them to the disk.
-        self.loss_names = ['G_GAN', 'G_reconstruct', 'D_real', 'D_fake', 'D_grad_penalty']
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -194,26 +191,10 @@ class AvsgModel(BaseModel):
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
-            ##
+        #########################################################################################
 
-    #########################################################################################
-    # def is_sample_valid(self, scene_data):
-    #     assert isinstance(scene_data, dict)  # assume batch_size == 1, where the sample is a dict of one scene
-    #     agents_feat = scene_data['agents_feat']
-    #     # if there are too few agents in the scene - skip it
-    #     return len(agents_feat) <= self.num_agents
 
-    # #########################################################################################
-    # def set_input(self, data_buffer):
-    #     """Unpack input data from the dataloader and perform necessary pre-processing steps.
-    #     Parameters:
-    #         input: a dictionary that contains the data itself and its metadata information.
-    #     """
-    #     self.data_buffer = data_buffer
-
-    #########################################################################################
-
-    def get_D_losses(self, conditioning, real_actors_set):
+    def get_D_losses(self, conditioning, real_actors):
         """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
@@ -227,12 +208,12 @@ class AvsgModel(BaseModel):
         loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        pred_is_real_for_real = self.netD(conditioning, real_actors_set)
+        pred_is_real_for_real = self.netD(conditioning, real_actors)
 
         # the loss is 0 if D correctly classify as not fake
         loss_D_classify_real = self.criterionGAN(prediction=pred_is_real_for_real, target_is_real=True)
 
-        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors_set,
+        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
                                                    fake_agents_detached, self)
 
         # snm = torch.nn.utils.parametrizations.spectral_norm(self.netD)
@@ -299,14 +280,5 @@ class AvsgModel(BaseModel):
         # Save for logging:
         self.train_log_metrics_G = log_metrics_G
         self.train_log_metrics_D = log_metrics_D
-
-    #########################################################################################
-
-    def get_current_losses(self):
-        losses_dict = {}
-        for name, val in (self.train_log_metrics_G | self.train_log_metrics_D).items():
-            if name.startswith('loss'):
-                losses_dict[name] = val
-        return losses_dict
 
     #########################################################################################
