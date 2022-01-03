@@ -75,6 +75,8 @@ class PointNet(nn.Module):
             input is a tensor of size [num_set_elements x elem_dim]
 
         """
+        if in_set.ndim == 1:
+            in_set = in_set.unsqueeze(0)
         h = in_set
         n_elements = in_set.shape[0]
         for i_layer in range(self.n_layers - 1):

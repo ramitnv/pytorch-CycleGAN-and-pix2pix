@@ -37,7 +37,8 @@ class PolygonEncoder(nn.Module):
         input [1 x n_points  x 2 coordinates]
         """
         # fit to conv1d input dimensions [batch_size=1  x in_channels=2  x n_points]
-        poly_points = poly_points.unsqueeze(dim=0)
+        while poly_points.ndim < 3:
+            poly_points = poly_points.unsqueeze(dim=0)
         h = torch.permute(poly_points, (0, 2, 1))
 
         if not self.is_closed:
@@ -103,6 +104,8 @@ class MapEncoder(nn.Module):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
             poly_elements_valid = map_feat[poly_type+'_valid']
+            if poly_elements_valid.ndim == 1:
+                poly_elements_valid = poly_elements_valid.unsqueeze(0)
             poly_n_points_per_element = poly_elements_valid.sum(dim=1)
             if poly_n_points_per_element.sum() == 0:
                 # if there are no polygon of this type in the scene:
