@@ -226,7 +226,7 @@ class AvsgModel(BaseModel):
 
         log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
                        "loss_D_classify_real": loss_D_classify_real, "loss_D_grad_penalty": loss_D_grad_penalty,
-                       "D_logit(real)": d_out_for_real, "D_logit(fake)": d_out_for_fake}
+                       "D_logit(real)": d_out_for_real, "D_logit(fake_detach)": d_out_for_fake}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
         return loss_D, log_metrics
 
@@ -249,7 +249,7 @@ class AvsgModel(BaseModel):
         loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
         log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct,
-                       "d_out_for_fake": d_out_for_fake}
+                       "D_logit(fake)": d_out_for_fake}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
         return loss_G, log_metrics
 

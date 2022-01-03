@@ -65,7 +65,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def display_current_results(self, model, train_dataset, eval_dataset, opt, i_epoch, i_epoch_iter, total_iters,
+    def display_current_results(self, model, train_dataset, validation_data_gen, opt, i_epoch, i_epoch_iter, total_iters,
                                 run_start_time, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
@@ -76,7 +76,7 @@ class Visualizer():
         """
         fig_index = total_iters
         self.plotted_inds.append(fig_index)
-        visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch,
+        visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch,
                                                                 i_epoch_iter, total_iters, run_start_time)
 
 
@@ -105,7 +105,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def print_current_metrics(self, model, eval_dataset, i_epoch, i_epoch_iter, total_iters):
+    def print_current_metrics(self, model, validation_data_gen, i_epoch, i_epoch_iter, total_iters):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -115,46 +115,43 @@ class Visualizer():
             losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
 
         """
-        train_metrics = model.train_log_metrics_G | model.train_log_metrics_D
+        train_metrics_G = model.train_log_metrics_G
+        train_metrics_D = model.train_log_metrics_D
 
-        scenes_batch = next(eval_dataset)
-        real_actors, conditioning = pre_process_scene_data(scenes_batch, model.opt)
+        validation_batch = next(validation_data_gen)
+        real_actors, conditioning = pre_process_scene_data(validation_batch, model.opt)
         _, val_metrics_G = model.get_G_losses(conditioning, real_actors)
         _, val_metrics_D = model.get_D_losses(conditioning, real_actors)
 
-        val_metrics = val_metrics_G | val_metrics_D
-
+        # print to console
         message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) '
-        message += 'Train: '
-        for name, v in train_metrics.items():
+        message += '\nTrain: '
+        for name, v in (train_metrics_G | train_metrics_D).items():
             message += f'{name}: {v:.2f} '
-
         message += '\nValidation: '
-        for name, v in val_metrics.items():
+        for name, v in (val_metrics_G | val_metrics_D).items():
             message += f'{name}: {v:.2f} '
-
-        # print the message
         print(message)
+
+        # save to log file
+        with open(self.log_name, "a") as log_file:
+            log_file.write(f'{message}\n')
 
         # update wandb charts
         if self.use_wandb:
-            for name, v in train_metrics.items():
-                self.wandb_run.log({f'train/{name}': v})
-            for name, v in val_metrics_G.items():
-                self.wandb_run.log({f'val/{name}': v})
-
-        # save log file
-        with open(self.log_name, "a") as log_file:
-            log_file.write('%s\n' % message)  # save the message
-
-##############################################################################################
+            for data_type, data_metrics in {'train': {'G': val_metrics_G, 'D': val_metrics_D},
+                                            'val': {'G': train_metrics_G, 'D': train_metrics_D}}:
+                for net_type, metrics in data_metrics:
+                    for name, v in metrics.items():
+                        self.wandb_run.log({f'{data_type}/{net_type}/{name}': v})
+    ##############################################################################################
 
 
-def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch, epoch_iter, total_iters,
+def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch, epoch_iter, total_iters,
                                  run_start_time):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
-    datasets = {'train': train_dataset, 'val': eval_dataset}
+    datasets = {'train': train_dataset, 'val': validation_data_gen}
     wandb_logs = {}
     visuals_dict = {}
     model.eval()
@@ -192,38 +189,6 @@ def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoc
 
             for i_generator_run in range(vis_n_generator_runs):
                 fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
-
-                # calculate the metrics for only for the first generated agents set per map:
-                if i_generator_run == 0:
-                    # Feed real agents set to discriminator
-                    d_out_for_real = model.netD(conditioning,
-                                                real_agents_vecs).detach()  # detach since we don't backpropp
-                    # pred_is_real_for_real_binary = (pred_is_real_for_real > 0).to(torch.float32)
-                    d_out_for_fake = model.netD(conditioning,
-                                                fake_agents_vecs).detach()  # detach since we don't backpropp
-                    # pred_is_real_for_fake_binary = (pred_is_real_for_fake > 0).to(torch.float32)
-                    loss_D_fake = model.criterionGAN(prediction=d_out_for_fake,
-                                                     target_is_real=False)  # D wants to correctly classsify
-                    loss_D_real = model.criterionGAN(prediction=d_out_for_real,
-                                                     target_is_real=True)  # D wants to correctly classsify
-                    loss_G_GAN = model.criterionGAN(prediction=d_out_for_fake,
-                                                    target_is_real=True)  # G tries to make D wrongly classify the fake sample (make D output "True"
-                    loss_G_reconstruct = model.criterion_reconstruct(fake_agents_vecs, real_agents_vecs)
-
-                    loss_D_grad_penalty = cal_gradient_penalty(model.netD, conditioning, real_agents_vecs,
-                                                               fake_agents_vecs, model)
-
-                    metrics[f'{dataset_name}/G/loss_GAN'][map_id] = loss_G_GAN
-                    metrics[f'{dataset_name}/G/loss_reconstruct'][map_id] = loss_G_reconstruct
-                    metrics[f'{dataset_name}/G/loss_total'][
-                        map_id] = loss_G_GAN + loss_G_reconstruct * opt.lambda_reconstruct
-                    metrics[f'{dataset_name}/D/loss_classify_real'][map_id] = loss_D_real
-                    metrics[f'{dataset_name}/D/loss_classify_fake'][map_id] = loss_D_fake
-                    metrics[f'{dataset_name}/D/loss_grad_penalty'][map_id] = loss_D_grad_penalty
-                    metrics[f'{dataset_name}/D/loss_total'][
-                        map_id] = loss_D_fake + loss_D_real + model.lambda_gp * loss_D_grad_penalty
-                    metrics[f'{dataset_name}/D/logit(fake)'][map_id] = d_out_for_fake
-                    metrics[f'{dataset_name}/D/logit(real)'][map_id] = d_out_for_real
 
                 # Add an image of the map & fake agents to wandb logs
                 if map_id < vis_n_maps and i_generator_run < vis_n_generator_runs:

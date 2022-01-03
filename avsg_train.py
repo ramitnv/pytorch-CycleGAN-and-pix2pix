@@ -34,6 +34,7 @@ from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
 from avsg_utils import pre_process_scene_data
+import itertools
 
 if __name__ == '__main__':
     run_start_time = time.time()
@@ -45,6 +46,7 @@ if __name__ == '__main__':
     eval_dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     eval_dataset_size = len(eval_dataset)  # get the number of images in the dataset.
     print('The number of test samples = %d' % eval_dataset_size)
+    validation_data_gen = itertools.cycle(eval_dataset)
 
     model = create_model(opt)  # create a model given opt.model and other options
     opt.device = model.device
@@ -74,10 +76,10 @@ if __name__ == '__main__':
 
             # print training losses and save logging information to the log file and wandb charts:
             if total_iters % opt.print_freq == 0:
-                visualizer.print_current_metrics(model, eval_dataset, i_epoch, i_epoch_iter, total_iters)
+                visualizer.print_current_metrics(model, validation_data_gen, i_epoch, i_epoch_iter, total_iters)
             # Display visualizations:
             if total_iters % opt.display_freq == 0:
-                visualizer.display_current_results(model, train_dataset, eval_dataset, opt, i_epoch, i_epoch_iter,
+                visualizer.display_current_results(model, train_dataset, validation_data_gen, opt, i_epoch, i_epoch_iter,
                                                    total_iters, run_start_time)
 
             # cache our latest model every <save_latest_freq> iterations:
