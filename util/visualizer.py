@@ -5,6 +5,7 @@ import torch
 from . import util, html
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
 from util.avsg_visualization_utils import visualize_scene_feat
+from util.util import take_index_from_nested_dict
 
 try:
     import wandb
@@ -180,9 +181,13 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
 
     for dataset_name, scenes_batch in scenes_batches_dict.items():
 
-        for i_map in range(vis_n_maps):
+        real_agents_vecs_batch, conditioning_batch = scenes_batch
 
-            real_agents_vecs, conditioning = scenes_batch
+        for i_map in range(vis_n_maps):
+            # take data of current scene:
+            real_agents_vecs = real_agents_vecs_batch[i_map]
+            map_feat = {poly_type: conditioning_batch['map_feat'][poly_type][i_map] for poly_type in conditioning_batch['map_feat'].keys()}
+            conditioning = {'map_feat': map_feat, 'n_actors_in_scene': conditioning_batch[i_map]}
 
             # Add an image of the map & real agents to wandb logs
             log_label = f"{dataset_name}/epoch#{i_epoch + 1}/iter#{i_batch + 1}/map#{i_map + 1}"
