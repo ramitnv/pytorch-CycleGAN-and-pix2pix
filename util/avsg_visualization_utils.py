@@ -1,11 +1,10 @@
-import time
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from matplotlib.patches import Rectangle
-import wandb
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
-from models.networks import cal_gradient_penalty
+import time
+
 
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
@@ -112,125 +111,3 @@ def visualize_scene_feat(agents_feat, map_feat):
     plt.close(fig)
     return image
 
-
-##############################################################################################
-
-
-def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch, epoch_iter, total_iters, run_start_time):
-    """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
-
-    datasets = {'train': train_dataset, 'val': eval_dataset}
-    wandb_logs = {}
-    visuals_dict = {}
-    model.eval()
-    stats_n_maps = opt.stats_n_maps  # how many maps to average over the metrics
-    vis_n_maps = opt.vis_n_maps  # how many maps to visualize
-    vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
-    g_var_n_generator_runs = opt.g_var_n_generator_runs  # how many sampled fake agents per map to caclulate G out variance
-
-    metrics = dict()
-    metrics_type_names = ['G/out_variability', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
-                          'D/loss_classify_real', 'D/loss_classify_fake', 'D/loss_grad_penalty',
-                          'D/loss_total', 'D/logit(fake)', 'D/logit(real)']
-
-    for dataset_name, dataset in datasets.items():
-        metrics_names = [f'{dataset_name}/{type_name}' for type_name in metrics_type_names]
-
-        for metric_name in metrics_names:
-            metrics[metric_name] = np.zeros(stats_n_maps)
-
-        assert vis_n_generator_runs >= 1
-        map_id = 0
-        log_label = 'null'
-        for scene_data in dataset:
-            if map_id >= stats_n_maps:
-                break
-            real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
-
-            if map_id < vis_n_maps:
-                # Add an image of the map & real agents to wandb logs
-                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
-                img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
-                visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
-                if opt.use_wandb:
-                    wandb_logs[log_label] = [wandb_img]
-
-            for i_generator_run in range(vis_n_generator_runs):
-                fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
-
-                # calculate the metrics for only for the first generated agents set per map:
-                if i_generator_run == 0:
-                    # Feed real agents set to discriminator
-                    d_out_for_real = model.netD(conditioning, real_agents_vecs).detach()  # detach since we don't backpropp
-                    # pred_is_real_for_real_binary = (pred_is_real_for_real > 0).to(torch.float32)
-                    d_out_for_fake = model.netD(conditioning, fake_agents_vecs).detach()  # detach since we don't backpropp
-                    # pred_is_real_for_fake_binary = (pred_is_real_for_fake > 0).to(torch.float32)
-                    loss_D_fake = model.criterionGAN(prediction=d_out_for_fake,
-                                                     target_is_real=False)  # D wants to correctly classsify
-                    loss_D_real = model.criterionGAN(prediction=d_out_for_real,
-                                                     target_is_real=True)  # D wants to correctly classsify
-                    loss_G_GAN = model.criterionGAN(prediction=d_out_for_fake,
-                                                    target_is_real=True)  # G tries to make D wrongly classify the fake sample (make D output "True"
-                    loss_G_reconstruct = model.criterion_reconstruct(fake_agents_vecs, real_agents_vecs)
-
-                    loss_D_grad_penalty = cal_gradient_penalty(model.netD, conditioning, real_agents_vecs,
-                                                               fake_agents_vecs, model)
-
-                    metrics[f'{dataset_name}/G/loss_GAN'][map_id] = loss_G_GAN
-                    metrics[f'{dataset_name}/G/loss_reconstruct'][map_id] = loss_G_reconstruct
-                    metrics[f'{dataset_name}/G/loss_total'][map_id] = loss_G_GAN + loss_G_reconstruct * opt.lambda_reconstruct
-                    metrics[f'{dataset_name}/D/loss_classify_real'][map_id] = loss_D_real
-                    metrics[f'{dataset_name}/D/loss_classify_fake'][map_id] = loss_D_fake
-                    metrics[f'{dataset_name}/D/loss_grad_penalty'][map_id] = loss_D_grad_penalty
-                    metrics[f'{dataset_name}/D/loss_total'][map_id] = loss_D_fake + loss_D_real + model.lambda_gp * loss_D_grad_penalty
-                    metrics[f'{dataset_name}/D/logit(fake)'][map_id] = d_out_for_fake
-                    metrics[f'{dataset_name}/D/logit(real)'][map_id] = d_out_for_real
-
-                # Add an image of the map & fake agents to wandb logs
-                if map_id < vis_n_maps and i_generator_run < vis_n_generator_runs:
-                    img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
-                    visuals_dict[f'{dataset_name}_map_#{map_id + 1}_fake_#{i_generator_run + 1}'] = img
-                    if opt.use_wandb:
-                        wandb_logs[log_label].append(wandb_img)
-
-            samples_fake_agents_vecs = []
-            for i_generator_run in range(g_var_n_generator_runs):
-                samples_fake_agents_vecs.append(model.netG(conditioning).detach())
-            samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
-            # calculate variance across samples:
-            feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
-            # Avg all out feat:
-            metrics[f'{dataset_name}/G/out_variability'][map_id] = feat_var_across_samples.mean()
-            map_id += 1
-
-    # Average over the maps:
-    for key, val in metrics.items():
-        metrics[key] = val.mean()
-
-    # additional metrics:
-    metrics['run/LR'] = model.lr
-    metrics['run/epoch'] = 1 + i_epoch
-    metrics['run/total_iters'] = total_iters
-    metrics['run/run_hours'] = (time.time() - run_start_time) / 60**2
-
-    if opt.use_wandb:
-        wandb.log(metrics)
-    print('Eval metrics: ' + ', '.join([f'{key}: {val:.2f}' for key, val in metrics.items()]))
-    if opt.isTrain:
-        model.train()
-    return visuals_dict, wandb_logs
-
-
-#########################################################################################
-
-def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
-    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
-    real_map = conditioning['map_feat']
-    img = visualize_scene_feat(agents_feat_dicts, real_map)
-    pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
-    caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
-    caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
-    wandb_img = wandb.Image(img, caption=caption)
-    return img, wandb_img
-
-#########################################################################################

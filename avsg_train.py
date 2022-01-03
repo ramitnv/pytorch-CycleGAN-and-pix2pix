@@ -33,12 +33,11 @@ from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
-from util.avsg_visualization_utils import get_metrics_stats_and_images
 from avsg_utils import pre_process_scene_data
 
 if __name__ == '__main__':
     run_start_time = time.time()
-    opt = TrainOptions(is_image_data=False).parse()  # get training options
+    opt = TrainOptions().parse()  # get training options
     train_dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     dataset_size = len(train_dataset)  # get the number of images in the dataset.
     print('The number of training samples = %d' % dataset_size)
@@ -57,7 +56,7 @@ if __name__ == '__main__':
                          opt.n_epochs + opt.n_epochs_decay + 1):  # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
         epoch_start_time = time.time()  # timer for entire epoch
         iter_data_time = time.time()  # timer for data loading per iteration
-        epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
+        i_epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
         visualizer.reset()  # reset the visualizer: make sure it saves the results to HTML at least once every epoch
 
         for i_scene, scenes_batch in enumerate(train_dataset):  # inner loop within one epoch
@@ -73,18 +72,15 @@ if __name__ == '__main__':
             # update learning rates (must be after first model update step):
             model.update_learning_rate()
 
-            # print training losses and save logging information to the disk:
+            # print training losses and save logging information to the log file and wandb charts:
             if total_iters % opt.print_freq == 0:
                 losses = model.get_current_losses()
-                visualizer.print_current_losses(i_epoch, epoch_iter, losses)
+                visualizer.print_current_metrics(i_epoch, i_epoch_iter, total_iters, losses)
 
             # Display :
             if total_iters % opt.display_freq == 0:
-                visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, eval_dataset,
-                                                                        opt, i_epoch, epoch_iter,
-                                                                        total_iters, run_start_time)
-                visualizer.display_current_results(visuals_dict, i_epoch, epoch_iter, wandb_logs)
-                print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{epoch_iter}, total_iter #{total_iters}')
+                visualizer.display_current_results(model, train_dataset, eval_dataset, opt, i_epoch, i_epoch_iter,
+                                                   total_iters, run_start_time)
 
             # cache our latest model every <save_latest_freq> iterations:
             if total_iters % opt.save_latest_freq == 0:
@@ -93,8 +89,7 @@ if __name__ == '__main__':
                 model.save_networks(save_suffix)
 
             total_iters += 1
-            epoch_iter += 1
-            data_buffer[:] = []  # clear mem
+            i_epoch_iter += 1
 
         # cache our model every <save_epoch_freq> epochs:
         if i_epoch % opt.save_epoch_freq == 0:

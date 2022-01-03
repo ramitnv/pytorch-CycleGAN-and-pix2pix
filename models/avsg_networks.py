@@ -24,17 +24,18 @@ class SceneGenerator(nn.Module):
     def forward(self, conditioning):
         """Standard forward"""
         n_actors_in_scene = conditioning['n_actors_in_scene']
-        agents_feat_vecs = []
+        max_n_actors = max(n_actors_in_scene)
+        agents_feat_vecs_all = torch.zeros((self.batch_size, max_n_actors, self.dim_agent_feat_vec), device=self.device)
         # iterate over batch:
-        for i_map in range(self.batch_size):
-            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_map] for poly_type in conditioning['map_feat'].keys()}
+        for i_scene in range(self.batch_size):
+            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in conditioning['map_feat'].keys()}
             map_latent = self.map_enc(map_feat)
             latent_noise_std = 1.0
             latent_noise = torch.randn(self.max_num_agents, self.dim_agent_noise, device=self.device) * latent_noise_std
-            n_agents = n_actors_in_scene[i_map]
-            agents_feat_vecs.append(self.agents_dec(map_latent, latent_noise, n_agents))
-        agents_feat_vecs = torch.stack(agents_feat_vecs)
-        return agents_feat_vecs
+            n_agents = n_actors_in_scene[i_scene]
+            agents_feat_vecs = self.agents_dec(map_latent, latent_noise, n_agents)
+            agents_feat_vecs_all[i_scene, :n_agents, :] = agents_feat_vecs
+        return agents_feat_vecs_all
 
 
 #########################################################################################

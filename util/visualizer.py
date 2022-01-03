@@ -1,21 +1,261 @@
 import numpy as np
 import os
-import sys
 import ntpath
 import time
+import torch
 from . import util, html
-from subprocess import Popen, PIPE
+from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
+from models.networks import cal_gradient_penalty
+from util.avsg_visualization_utils import visualize_scene_feat
 
 try:
     import wandb
 except ImportError:
     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
 
-if sys.version_info[0] == 2:
-    VisdomExceptionBase = Exception
-else:
-    VisdomExceptionBase = ConnectionError
+##############################################################################################
 
+class Visualizer():
+    """This class includes several functions that can display/save images and print/save logging information.
+
+    It uses   a Python library 'dominate' (wrapped in 'HTML') for creating HTML files with images.
+    """
+
+    # ==========================================================================
+
+    def __init__(self, opt):
+        """Initialize the Visualizer class
+
+        Parameters:
+            opt -- stores all the experiment flags; needs to be a subclass of BaseOptions
+        Step 1: Cache the training/test options
+        Step 3: create an HTML object for saveing HTML filters
+        Step 4: create a logging file to store training losses
+        """
+
+        self.opt = opt  # cache the option
+        self.use_html = opt.isTrain and not opt.no_html
+        self.win_size = opt.display_winsize
+        self.name = opt.name
+        self.saved = False
+        self.use_wandb = opt.use_wandb
+        self.current_fig_index = (0, 0)
+        self.plotted_inds = []
+
+        if self.use_wandb:
+            self.wandb_run = wandb.init(project='SceneGen', name=opt.name, config=opt) if not wandb.run else wandb.run
+            self.wandb_run._label(repo='SceneGen')
+
+        if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
+            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
+            self.img_dir = os.path.join(self.web_dir, 'images')
+            print('create web directory %s...' % self.web_dir)
+            util.mkdirs([self.web_dir, self.img_dir])
+        # create a logging file to store training losses
+        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
+        with open(self.log_name, "a") as log_file:
+            now = time.strftime("%c")
+            log_file.write('================ Training Loss (%s) ================\n' % now)
+
+    # ==========================================================================
+
+    def reset(self):
+        """Reset the self.saved status"""
+        self.saved = False
+
+    # ==========================================================================
+
+    def display_current_results(self, model, train_dataset, eval_dataset, opt, i_epoch, i_epoch_iter, total_iters,
+                                run_start_time, file_type='jpg'):
+        """Display current results on visdom; save current results to an HTML file.
+
+        Parameters:
+            visuals (OrderedDict) - - dictionary of images to display or save
+            epoch (int) - - the current epoch
+            save_result (bool) - - if save the current results to an HTML file
+        """
+        fig_index = total_iters
+        self.plotted_inds.append(fig_index)
+        visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch,
+                                                                i_epoch_iter, total_iters, run_start_time)
+        if self.use_wandb:
+            if fig_index != self.current_fig_index:
+                self.current_fig_index = fig_index
+                for log_label, log_data in wandb_logs.items():
+                    self.wandb_run.log({log_label: log_data})
+
+        # save images to an HTML file if they haven't been saved.
+        if self.use_html and not self.saved:
+            self.saved = True
+            # save images to the disk
+            for label, image in visuals_dict.items():
+                image_numpy = util.tensor2im(image)
+                img_path = os.path.join(self.img_dir, f'e{i_epoch+1}_i{i_epoch_iter+1}_{label}.{file_type}')
+                util.save_image(image_numpy, img_path)
+            # update website
+            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
+            for ind in self.plotted_inds[::-1]:
+                webpage.add_header(f'epoch {ind[0]}, iter {ind[1]}')
+                ims, txts, links = [], [], []
+                for label, image_numpy in visuals_dict.items():
+                    img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
+                    ims.append(img_path)
+                    txts.append(label)
+                    links.append(img_path)
+                webpage.add_images(ims, txts, links, width=self.win_size)
+            webpage.save()
+
+        print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_epoch_iter}, total_iter #{total_iters}')
+
+    # ==========================================================================
+
+    def print_current_metrics(self, i_epoch, i_epoch_iter, total_iters, losses):
+        """  print training losses and save logging information to the log file and wandblog charts
+
+
+        Parameters:
+            epoch (int) -- current epoch
+            iters (int) -- current training iteration during this epoch (reset to 0 at the end of every epoch)
+            losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
+
+        """
+
+        message = f'(epoch: {1 + i_epoch}, iters: {1 + i_epoch_iter}, tot_iters: {total_iters}) Current losses: '
+        for name, val in losses.items():
+            message += f'{name}: {val:.3f} '
+
+        print(message)  # print the message
+        with open(self.log_name, "a") as log_file:
+            log_file.write('%s\n' % message)  # save the message
+
+
+##############################################################################################
+
+
+def get_metrics_stats_and_images(model, train_dataset, eval_dataset, opt, i_epoch, epoch_iter, total_iters,
+                                 run_start_time):
+    """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
+
+    datasets = {'train': train_dataset, 'val': eval_dataset}
+    wandb_logs = {}
+    visuals_dict = {}
+    model.eval()
+    stats_n_maps = opt.stats_n_maps  # how many maps to average over the metrics
+    vis_n_maps = opt.vis_n_maps  # how many maps to visualize
+    vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
+    g_var_n_generator_runs = opt.g_var_n_generator_runs  # how many sampled fake agents per map to caclulate G out variance
+
+    metrics = dict()
+    metrics_type_names = ['G/out_variability', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
+                          'D/loss_classify_real', 'D/loss_classify_fake', 'D/loss_grad_penalty',
+                          'D/loss_total', 'D/logit(fake)', 'D/logit(real)']
+
+    for dataset_name, dataset in datasets.items():
+        metrics_names = [f'{dataset_name}/{type_name}' for type_name in metrics_type_names]
+
+        for metric_name in metrics_names:
+            metrics[metric_name] = np.zeros(stats_n_maps)
+
+        assert vis_n_generator_runs >= 1
+        map_id = 0
+        log_label = 'null'
+        for scene_data in dataset:
+            if map_id >= stats_n_maps:
+                break
+            real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
+
+            if map_id < vis_n_maps:
+                # Add an image of the map & real agents to wandb logs
+                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
+                img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
+                visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
+                if opt.use_wandb:
+                    wandb_logs[log_label] = [wandb_img]
+
+            for i_generator_run in range(vis_n_generator_runs):
+                fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
+
+                # calculate the metrics for only for the first generated agents set per map:
+                if i_generator_run == 0:
+                    # Feed real agents set to discriminator
+                    d_out_for_real = model.netD(conditioning,
+                                                real_agents_vecs).detach()  # detach since we don't backpropp
+                    # pred_is_real_for_real_binary = (pred_is_real_for_real > 0).to(torch.float32)
+                    d_out_for_fake = model.netD(conditioning,
+                                                fake_agents_vecs).detach()  # detach since we don't backpropp
+                    # pred_is_real_for_fake_binary = (pred_is_real_for_fake > 0).to(torch.float32)
+                    loss_D_fake = model.criterionGAN(prediction=d_out_for_fake,
+                                                     target_is_real=False)  # D wants to correctly classsify
+                    loss_D_real = model.criterionGAN(prediction=d_out_for_real,
+                                                     target_is_real=True)  # D wants to correctly classsify
+                    loss_G_GAN = model.criterionGAN(prediction=d_out_for_fake,
+                                                    target_is_real=True)  # G tries to make D wrongly classify the fake sample (make D output "True"
+                    loss_G_reconstruct = model.criterion_reconstruct(fake_agents_vecs, real_agents_vecs)
+
+                    loss_D_grad_penalty = cal_gradient_penalty(model.netD, conditioning, real_agents_vecs,
+                                                               fake_agents_vecs, model)
+
+                    metrics[f'{dataset_name}/G/loss_GAN'][map_id] = loss_G_GAN
+                    metrics[f'{dataset_name}/G/loss_reconstruct'][map_id] = loss_G_reconstruct
+                    metrics[f'{dataset_name}/G/loss_total'][
+                        map_id] = loss_G_GAN + loss_G_reconstruct * opt.lambda_reconstruct
+                    metrics[f'{dataset_name}/D/loss_classify_real'][map_id] = loss_D_real
+                    metrics[f'{dataset_name}/D/loss_classify_fake'][map_id] = loss_D_fake
+                    metrics[f'{dataset_name}/D/loss_grad_penalty'][map_id] = loss_D_grad_penalty
+                    metrics[f'{dataset_name}/D/loss_total'][
+                        map_id] = loss_D_fake + loss_D_real + model.lambda_gp * loss_D_grad_penalty
+                    metrics[f'{dataset_name}/D/logit(fake)'][map_id] = d_out_for_fake
+                    metrics[f'{dataset_name}/D/logit(real)'][map_id] = d_out_for_real
+
+                # Add an image of the map & fake agents to wandb logs
+                if map_id < vis_n_maps and i_generator_run < vis_n_generator_runs:
+                    img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
+                    visuals_dict[f'{dataset_name}_map_#{map_id + 1}_fake_#{i_generator_run + 1}'] = img
+                    if opt.use_wandb:
+                        wandb_logs[log_label].append(wandb_img)
+
+            samples_fake_agents_vecs = []
+            for i_generator_run in range(g_var_n_generator_runs):
+                samples_fake_agents_vecs.append(model.netG(conditioning).detach())
+            samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
+            # calculate variance across samples:
+            feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
+            # Avg all out feat:
+            metrics[f'{dataset_name}/G/out_variability'][map_id] = feat_var_across_samples.mean()
+            map_id += 1
+
+    # Average over the maps:
+    for key, val in metrics.items():
+        metrics[key] = val.mean()
+
+    # additional metrics:
+    metrics['run/LR'] = model.lr
+    metrics['run/epoch'] = 1 + i_epoch
+    metrics['run/total_iters'] = total_iters
+    metrics['run/run_hours'] = (time.time() - run_start_time) / 60 ** 2
+
+    if opt.use_wandb:
+        wandb.log(metrics)
+    print('Eval metrics: ' + ', '.join([f'{key}: {val:.2f}' for key, val in metrics.items()]))
+    if opt.isTrain:
+        model.train()
+    return visuals_dict, wandb_logs
+
+
+#########################################################################################
+
+def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
+    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
+    real_map = conditioning['map_feat']
+    img = visualize_scene_feat(agents_feat_dicts, real_map)
+    pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
+    caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
+    caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
+    wandb_img = wandb.Image(img, caption=caption)
+    return img, wandb_img
+
+#########################################################################################
+##############################################################################################
 
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False, file_type='png'):
     """Save images to the disk.
@@ -49,211 +289,4 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
     webpage.add_images(ims, txts, links, width=width)
     if use_wandb:
         wandb.log(ims_dict)
-
-
-class Visualizer():
-    """This class includes several functions that can display/save images and print/save logging information.
-
-    It uses a Python library 'visdom' for display, and a Python library 'dominate' (wrapped in 'HTML') for creating HTML files with images.
-    """
-
-    def __init__(self, opt):
-        """Initialize the Visualizer class
-
-        Parameters:
-            opt -- stores all the experiment flags; needs to be a subclass of BaseOptions
-        Step 1: Cache the training/test options
-        Step 2: connect to a visdom server
-        Step 3: create an HTML object for saveing HTML filters
-        Step 4: create a logging file to store training losses
-        """
-
-        self.opt = opt  # cache the option
-        self.display_id = opt.display_id
-        self.use_html = opt.isTrain and not opt.no_html
-        self.win_size = opt.display_winsize
-        self.name = opt.name
-        self.port = opt.display_port
-        self.saved = False
-        self.use_wandb = opt.use_wandb
-        self.current_fig_index = (0, 0)
-        self.plotted_inds = []
-        self.ncols = opt.display_ncols
-        if self.display_id > 0:  # connect to a visdom server given <display_port> and <display_server>
-            import visdom
-            self.vis = visdom.Visdom(server=opt.display_server, port=opt.display_port, env=opt.display_env)
-            if not self.vis.check_connection():
-                self.create_visdom_connections()
-
-        if self.use_wandb:
-            import wandb
-            self.wandb_run = wandb.init(project='SceneGen', name=opt.name, config=opt) if not wandb.run else wandb.run
-            self.wandb_run._label(repo='SceneGen')
-
-        if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
-            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
-            self.img_dir = os.path.join(self.web_dir, 'images')
-            print('create web directory %s...' % self.web_dir)
-            util.mkdirs([self.web_dir, self.img_dir])
-        # create a logging file to store training losses
-        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
-        with open(self.log_name, "a") as log_file:
-            now = time.strftime("%c")
-            log_file.write('================ Training Loss (%s) ================\n' % now)
-
-    def reset(self):
-        """Reset the self.saved status"""
-        self.saved = False
-
-    def create_visdom_connections(self):
-        """If the program could not connect to Visdom server, this function will start a new server at port < self.port > """
-        cmd = sys.executable + ' -m visdom.server -p %d &>/dev/null &' % self.port
-        print('\n\nCould not connect to Visdom server. \n Trying to start a server....')
-        print('Command: %s' % cmd)
-        Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-
-    def display_current_results(self, visuals, epoch, epoch_iter, wandb_logs=None, file_type='jpg'):
-        """Display current results on visdom; save current results to an HTML file.
-
-        Parameters:
-            visuals (OrderedDict) - - dictionary of images to display or save
-            epoch (int) - - the current epoch
-            save_result (bool) - - if save the current results to an HTML file
-        """
-        fig_index = (epoch, epoch_iter)
-        self.plotted_inds.append(fig_index)
-        ncols = self.ncols
-        use_visdom = self.display_id > 0  # show images in the browser using visdom:
-        # ==========================================================================
-
-        # show all the images in one visdom panel
-        if use_visdom and ncols > 0:
-            ncols = min(ncols, len(visuals))
-            h, w = next(iter(visuals.values())).shape[:2]
-            table_css = """<style>
-                    table {border-collapse: separate; border-spacing: 4px; white-space: nowrap; text-align: center}
-                    table td {width: % dpx; height: % dpx; padding: 4px; outline: 4px solid black}
-                    </style>""" % (w, h)  # create a table css
-            # create a table of images.
-            title = self.name
-            label_html = ''
-            label_html_row = ''
-            images = []
-            idx = 0
-            for label, image in visuals.items():
-                image_numpy = util.tensor2im(image)
-                label_html_row += '<td>%s</td>' % label
-                images.append(image_numpy.transpose([2, 0, 1]))
-                idx += 1
-                if idx % ncols == 0:
-                    label_html += '<tr>%s</tr>' % label_html_row
-                    label_html_row = ''
-            white_image = np.ones_like(image_numpy.transpose([2, 0, 1])) * 255
-            while idx % ncols != 0:
-                images.append(white_image)
-                label_html_row += '<td></td>'
-                idx += 1
-            if label_html_row != '':
-                label_html += '<tr>%s</tr>' % label_html_row
-
-            try:
-                self.vis.images(images, nrow=ncols, win=self.display_id + 1,
-                                padding=2, opts=dict(title=title + ' images'))
-                label_html = '<table>%s</table>' % label_html
-                self.vis.text(table_css + label_html, win=self.display_id + 2,
-                              opts=dict(title=title + ' labels'))
-            except VisdomExceptionBase:
-                self.create_visdom_connections()
-        # ==========================================================================
-
-        # show each image in a separate visdom panel;
-        if use_visdom and ncols == 0:
-            idx = 1
-            try:
-                for label, image in visuals.items():
-                    image_numpy = util.tensor2im(image)
-                    self.vis.image(image_numpy.transpose([2, 0, 1]), opts=dict(title=label),
-                                   win=self.display_id + idx)
-                    idx += 1
-            except VisdomExceptionBase:
-                self.create_visdom_connections()
-        # ==========================================================================
-
-        if self.use_wandb:
-            if fig_index != self.current_fig_index:
-                self.current_fig_index = fig_index
-                for log_label, log_data in wandb_logs.items():
-                    self.wandb_run.log({log_label: log_data})
-
-        # ==========================================================================
-
-        # save images to an HTML file if they haven't been saved.
-        if self.use_html and not self.saved:
-            self.saved = True
-            # save images to the disk
-            for label, image in visuals.items():
-                image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'e{epoch}_i{epoch_iter}_{label}.{file_type}')
-                util.save_image(image_numpy, img_path)
-            # update website
-            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
-            for ind in self.plotted_inds[::-1]:
-                webpage.add_header(f'epoch {ind[0]}, iter {ind[1]}')
-                ims, txts, links = [], [], []
-                for label, image_numpy in visuals.items():
-                    img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
-                    ims.append(img_path)
-                    txts.append(label)
-                    links.append(img_path)
-                webpage.add_images(ims, txts, links, width=self.win_size)
-            webpage.save()
-        # ==========================================================================
-
-    def plot_current_losses(self, epoch, counter_ratio, losses):
-        """display the current losses on visdom display: dictionary of error labels and values
-
-        Parameters:
-            epoch (int)           -- current epoch
-            counter_ratio (float) -- progress (percentage) in the current epoch, between 0 to 1
-            losses (OrderedDict)  -- training losses stored in the format of (name, float) pairs
-        """
-        if not hasattr(self, 'plot_data'):
-            self.plot_data = {'X': [], 'Y': [], 'legend': list(losses.keys())}
-        self.plot_data['X'].append(epoch + counter_ratio)
-        self.plot_data['Y'].append([losses[k] for k in self.plot_data['legend']])
-        try:
-            self.vis.line(
-                X=np.stack([np.array(self.plot_data['X'])] * len(self.plot_data['legend']), 1),
-                Y=np.array(self.plot_data['Y']),
-                opts={
-                    'title': self.name + ' loss over time',
-                    'legend': self.plot_data['legend'],
-                    'xlabel': 'epoch',
-                    'ylabel': 'loss'},
-                win=self.display_id)
-        except VisdomExceptionBase:
-            self.create_visdom_connections()
-        if self.use_wandb:
-            self.wandb_run.log(losses)
-
-    # losses: same format as |losses| of plot_current_losses
-    def print_current_losses(self, epoch, iters, losses, t_comp=None, t_data=None):
-        """print current losses on console; also save the losses to the disk
-
-        Parameters:
-            epoch (int) -- current epoch
-            iters (int) -- current training iteration during this epoch (reset to 0 at the end of every epoch)
-            losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
-            t_comp (float) -- computational time per data point (normalized by batch_size)
-            t_data (float) -- data loading time per data point (normalized by batch_size)
-        """
-        if t_comp and t_data:
-            message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, iters, t_comp, t_data)
-        else:
-            message = '(epoch: %d, iters: %d) Current losses: ' % (epoch, iters)
-        for k, v in losses.items():
-            message += '%s: %.3f ' % (k, v)
-
-        print(message)  # print the message
-        with open(self.log_name, "a") as log_file:
-            log_file.write('%s\n' % message)  # save the message
+##############################################################################################

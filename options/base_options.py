@@ -13,9 +13,8 @@ class BaseOptions():
     It also gathers additional options defined in <modify_commandline_options> functions in both dataset class and model class.
     """
 
-    def __init__(self,  is_image_data=True):
+    def __init__(self):
         """Reset the class; indicates the class hasn't been initialized"""
-        self.is_image_data = is_image_data
         self.initialized = False
 
     def initialize(self, parser):
@@ -53,18 +52,6 @@ class BaseOptions():
         parser.add_argument('--display_winsize', type=int, default=256,
                             help='display window size for both visdom and HTML')
 
-        if self.is_image_data:
-            parser.add_argument('--direction', type=str, default='AtoB', help='AtoB or BtoA')
-            parser.add_argument('--input_nc', type=int, default=3,
-                                help='# of input image channels: 3 for RGB and 1 for grayscale')
-            parser.add_argument('--output_nc', type=int, default=3,
-                                help='# of output image channels: 3 for RGB and 1 for grayscale')
-            parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in the last conv layer')
-            parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in the first conv layer')
-            parser.add_argument('--load_size', type=int, default=286, help='scale images to this size')
-            parser.add_argument('--crop_size', type=int, default=256, help='then crop to this size')
-            parser.add_argument('--preprocess', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop | crop | scale_width | scale_width_and_crop | none]')
-            parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
 
         self.initialized = True
 
