@@ -175,54 +175,36 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
-
+    vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
     validation_batch = next(validation_data_gen)
-
     val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
-
-    datasets = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
+    scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
     model.eval()
-    vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
 
-    metrics = dict()
-
-    for dataset_name, dataset in datasets.items():
-
-        log_label = 'null'
+    for dataset_name, scenes_batch in scenes_batches_dict.items():
 
         for i_map in range(vis_n_maps):
 
-            real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
+            real_agents_vecs, conditioning = scenes_batch
 
-            if map_id < vis_n_maps:
-                # Add an image of the map & real agents to wandb logs
-                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + i_batch} Map#{1 + map_id}"
-                img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
-                visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
-                if opt.use_wandb:
-                    wandb_logs[log_label] = [wandb_img]
+            # Add an image of the map & real agents to wandb logs
+            log_label = f"{dataset_name}/epoch#{i_epoch + 1}/iter#{i_batch + 1}/map#{i_map + 1}"
+            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
+            visuals_dict[f'{dataset_name}_map_{i_map + 1}_real_agents'] = img
+            if opt.use_wandb:
+                wandb_logs[log_label] = [wandb_img]
 
             for i_generator_run in range(vis_n_generator_runs):
                 fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
 
                 # Add an image of the map & fake agents to wandb logs
-                if map_id < vis_n_maps and i_generator_run < vis_n_generator_runs:
-                    img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
-                    visuals_dict[f'{dataset_name}_map_#{map_id + 1}_fake_#{i_generator_run + 1}'] = img
-                    if opt.use_wandb:
-                        wandb_logs[log_label].append(wandb_img)
+                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
+                visuals_dict[f'{dataset_name}_map_#{i_map + 1}_fake_#{i_generator_run + 1}'] = img
+                if opt.use_wandb:
+                    wandb_logs[log_label].append(wandb_img)
 
-            map_id += 1
-
-    # Average over the maps:
-    for key, val in metrics.items():
-        metrics[key] = val.mean()
-
-    if opt.use_wandb:
-        wandb.log(metrics)
-    print('Eval metrics: ' + ', '.join([f'{key}: {val:.2f}' for key, val in metrics.items()]))
     if opt.isTrain:
         model.train()
     return visuals_dict, wandb_logs
