@@ -28,7 +28,6 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs):
 def pre_process_scene_data(scenes_batch, opt):
 
     agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-    polygon_name_order = opt.polygon_name_order
     device = opt.device
     # We assume this order of coordinates:
     assert agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y',

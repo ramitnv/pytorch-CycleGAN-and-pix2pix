@@ -177,8 +177,9 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
 
     validation_batch = next(validation_data_gen)
-    validation_batch = validation_batch[:vis_n_maps]
+
     val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
+
     datasets = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
