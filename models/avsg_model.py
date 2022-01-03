@@ -267,7 +267,7 @@ class AvsgModel(BaseModel):
         loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
 
         log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct,
-                       "fake_actors": fake_actors, "d_out_for_fake": d_out_for_fake}
+                       "d_out_for_fake": d_out_for_fake}
         return loss_G, log_metrics
 
     #########################################################################################

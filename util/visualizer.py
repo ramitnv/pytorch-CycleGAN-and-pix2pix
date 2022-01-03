@@ -109,7 +109,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def print_current_metrics(self, i_epoch, i_epoch_iter, total_iters, losses):
+    def print_current_metrics(self, model, i_epoch, i_epoch_iter, total_iters):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -119,9 +119,11 @@ class Visualizer():
             losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
 
         """
+        metrics_dict = model.train_log_metrics_G | model.train_log_metrics_D
+        # metrics = model.get_current_losses()
 
         message = f'(epoch: {1 + i_epoch}, iters: {1 + i_epoch_iter}, tot_iters: {total_iters}) Current losses: '
-        for name, val in losses.items():
+        for name, val in metrics_dict.items():
             message += f'{name}: {val:.3f} '
 
         print(message)  # print the message

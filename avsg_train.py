@@ -74,8 +74,7 @@ if __name__ == '__main__':
 
             # print training losses and save logging information to the log file and wandb charts:
             if total_iters % opt.print_freq == 0:
-                losses = model.get_current_losses()
-                visualizer.print_current_metrics(i_epoch, i_epoch_iter, total_iters, losses)
+                visualizer.print_current_metrics(model, i_epoch, i_epoch_iter, total_iters)
 
             # Display :
             if total_iters % opt.display_freq == 0:
