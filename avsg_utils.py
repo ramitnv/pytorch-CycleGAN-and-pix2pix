@@ -28,6 +28,7 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs):
 
 def pre_process_scene_data(scenes_batch, opt):
 
+    batch_len = len(scenes_batch['n_actors_in_scene'])
     agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
     device = opt.device
     # We assume this order of coordinates:
@@ -36,7 +37,7 @@ def pre_process_scene_data(scenes_batch, opt):
                                            'extent_length', 'extent_width', 'speed',
                                            'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
 
-    for i_scene in range(opt.batch_size):
+    for i_scene in range(batch_len):
         if opt.augmentation_type == 'none':
             pass
         elif opt.augmentation_type == 'rotate_and_translate':
