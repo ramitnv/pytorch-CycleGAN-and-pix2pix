@@ -12,6 +12,7 @@ try:
 except ImportError:
     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
 
+
 ##############################################################################################
 
 class Visualizer():
@@ -64,47 +65,8 @@ class Visualizer():
 
     # ==========================================================================
 
-    def display_current_results(self, model, train_dataset, validation_data_gen, opt, i_epoch, i_batch, total_iters,
-                                run_start_time, file_type='jpg'):
-        """Display current results on visdom; save current results to an HTML file.
-
-        Parameters:
-            visuals (OrderedDict) - - dictionary of images to display or save
-            epoch (int) - - the current epoch
-            save_result (bool) - - if save the current results to an HTML file
-        """
-        fig_index = total_iters
-        self.plotted_inds.append(fig_index)
-        visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch,
-                                                                i_batch, total_iters, run_start_time)
-
-
-        # save images to an HTML file if they haven't been saved.
-        if self.use_html and not self.saved:
-            self.saved = True
-            # save images to the disk
-            for label, image in visuals_dict.items():
-                image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'e{i_epoch+1}_i{i_batch+1}_{label}.{file_type}')
-                util.save_image(image_numpy, img_path)
-            # update website
-            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
-            for ind in self.plotted_inds[::-1]:
-                webpage.add_header(f'epoch {ind[0]}, iter {ind[1]}')
-                ims, txts, links = [], [], []
-                for label, image_numpy in visuals_dict.items():
-                    img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
-                    ims.append(img_path)
-                    txts.append(label)
-                    links.append(img_path)
-                webpage.add_images(ims, txts, links, width=self.win_size)
-            webpage.save()
-
-        print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_batch}, total_iter #{total_iters}')
-
-    # ==========================================================================
-
-    def print_current_metrics(self, model, opt, train_conditioning, validation_data_gen, i_epoch, i_batch, tot_iters, run_start_time):
+    def print_current_metrics(self, model, opt, train_conditioning, validation_data_gen, i_epoch, i_batch, tot_iters,
+                              run_start_time):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -166,34 +128,76 @@ class Visualizer():
 
         if opt.isTrain:
             model.train()
-    ##############################################################################################
+
+    # ==========================================================================
+
+    def display_current_results(self, model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch,
+                                i_batch, total_iters, file_type='jpg'):
+        """Display current results on visdom; save current results to an HTML file.
+
+        Parameters:
+            visuals (OrderedDict) - - dictionary of images to display or save
+            epoch (int) - - the current epoch
+            save_result (bool) - - if save the current results to an HTML file
+        """
+        fig_index = total_iters
+        self.plotted_inds.append(fig_index)
+        visuals_dict, wandb_logs = get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt,
+                                              i_epoch, i_batch)
+
+        # save images to an HTML file if they haven't been saved.
+        if self.use_html and not self.saved:
+            self.saved = True
+            # save images to the disk
+            for label, image in visuals_dict.items():
+                image_numpy = util.tensor2im(image)
+                img_path = os.path.join(self.img_dir, f'e{i_epoch + 1}_i{i_batch + 1}_{label}.{file_type}')
+                util.save_image(image_numpy, img_path)
+            # update website
+            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
+            for ind in self.plotted_inds[::-1]:
+                webpage.add_header(f'epoch {ind[0]}, iter {ind[1]}')
+                ims, txts, links = [], [], []
+                for label, image_numpy in visuals_dict.items():
+                    img_path = f'e{ind[0]}_i{ind[1]}_{label}.{file_type}'
+                    ims.append(img_path)
+                    txts.append(label)
+                    links.append(img_path)
+                webpage.add_images(ims, txts, links, width=self.win_size)
+            webpage.save()
+
+        print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_batch}, total_iter #{total_iters}')
+
+    # ==========================================================================
 
 
-def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch, epoch_iter, tot_iters,
-                                 run_start_time):
+def get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch, i_batch):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
-    datasets = {'train': train_dataset, 'val': validation_data_gen}
+    vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
+
+    validation_batch = next(validation_data_gen)
+    validation_batch = validation_batch[:vis_n_maps]
+    val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
+    datasets = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
     model.eval()
-    vis_n_maps = opt.vis_n_maps  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
 
     metrics = dict()
 
     for dataset_name, dataset in datasets.items():
 
-        assert vis_n_generator_runs >= 1
-        map_id = 0
         log_label = 'null'
-        for scene_data in dataset:
+
+        for i_map in range(vis_n_maps):
 
             real_agents_vecs, conditioning = pre_process_scene_data(scene_data, opt)
 
             if map_id < vis_n_maps:
                 # Add an image of the map & real agents to wandb logs
-                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + epoch_iter} Map#{1 + map_id}"
+                log_label = f"{dataset_name}_epoch#{1 + i_epoch} iter#{1 + i_batch} Map#{1 + map_id}"
                 img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
                 visuals_dict[f'{dataset_name}_map_{map_id}_real_agents'] = img
                 if opt.use_wandb:
@@ -215,7 +219,6 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
     for key, val in metrics.items():
         metrics[key] = val.mean()
 
-
     if opt.use_wandb:
         wandb.log(metrics)
     print('Eval metrics: ' + ', '.join([f'{key}: {val:.2f}' for key, val in metrics.items()]))
@@ -235,6 +238,7 @@ def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
     caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
+
 
 #########################################################################################
 ##############################################################################################
@@ -271,6 +275,8 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
     webpage.add_images(ims, txts, links, width=width)
     if use_wandb:
         wandb.log(ims_dict)
+
+
 ##############################################################################################
 
 def num_to_str(x):
