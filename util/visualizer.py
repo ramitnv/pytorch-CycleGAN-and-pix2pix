@@ -122,9 +122,9 @@ class Visualizer():
         metrics_dict = model.train_log_metrics_G | model.train_log_metrics_D
         # metrics = model.get_current_losses()
 
-        message = f'(epoch: {1 + i_epoch}, iters: {1 + i_epoch_iter}, tot_iters: {total_iters}) Current losses: '
+        message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) Current losses: '
         for name, val in metrics_dict.items():
-            message += f'{name}: {val:.3f} '
+            message += f'{name}: {val:.2f} '
 
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
