@@ -16,8 +16,8 @@ plt.rcParams['savefig.dpi'] = 300
 def plot_poly_elems(ax, poly, facecolor='0.4', alpha=0.3, edgecolor='black', label='', is_closed=False, linewidth=1):
     first_plt = True
     for elem in poly:
-        x = elem[0, :, 0].detach().cpu()
-        y = elem[0, :, 1].detach().cpu()
+        x = elem[:, 0].detach().cpu()
+        y = elem[:, 1].detach().cpu()
         if first_plt:
             first_plt = False
         else:
