@@ -52,16 +52,15 @@ if __name__ == '__main__':
     opt.device = model.device
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
-    total_iters = 0  # the total number of training iterations
+    tot_iters = 0  # the total number of training iterations
     start_time = time.time()
     for i_epoch in range(opt.start_epoch,
                          opt.n_epochs + opt.n_epochs_decay + 1):  # outer loop for different epochs; we save the model by <start_epoch>, <epoch_count>+<save_latest_freq>
         epoch_start_time = time.time()  # timer for entire epoch
         iter_data_time = time.time()  # timer for data loading per iteration
-        i_epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
         visualizer.reset()  # reset the visualizer: make sure it saves the results to HTML at least once every epoch
 
-        for i_scene, scenes_batch in enumerate(train_dataset):  # inner loop within one epoch
+        for i_batch, scenes_batch in enumerate(train_dataset):  # inner loop within one epoch
 
             # unpack data from dataset and apply preprocessing:
             real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
@@ -75,25 +74,25 @@ if __name__ == '__main__':
             model.update_learning_rate()
 
             # print training losses and save logging information to the log file and wandb charts:
-            if total_iters % opt.print_freq == 0:
-                visualizer.print_current_metrics(model, opt, real_actors, conditioning, validation_data_gen, i_epoch, i_epoch_iter, total_iters)
+            if tot_iters % opt.print_freq == 0:
+                visualizer.print_current_metrics(model, opt, conditioning, validation_data_gen, i_epoch, i_batch,
+                                                 tot_iters, run_start_time)
             # Display visualizations:
-            if total_iters % opt.display_freq == 0:
-                visualizer.display_current_results(model, train_dataset, validation_data_gen, opt, i_epoch, i_epoch_iter,
-                                                   total_iters, run_start_time)
+            if tot_iters % opt.display_freq == 0:
+                visualizer.display_current_results(model, train_dataset, validation_data_gen, opt, i_epoch, i_batch,
+                                                   tot_iters, run_start_time)
 
             # cache our latest model every <save_latest_freq> iterations:
-            if total_iters % opt.save_latest_freq == 0:
-                print('saving the latest model (epoch %d, total_iters %d)' % (i_epoch, total_iters))
-                save_suffix = 'iter_%d' % total_iters if opt.save_by_iter else 'latest'
+            if tot_iters % opt.save_latest_freq == 0:
+                print('saving the latest model (epoch %d, tot_iters %d)' % (i_epoch, tot_iters))
+                save_suffix = 'iter_%d' % tot_iters if opt.save_by_iter else 'latest'
                 model.save_networks(save_suffix)
 
-            total_iters += 1
-            i_epoch_iter += 1
+            tot_iters += 1
 
         # cache our model every <save_epoch_freq> epochs:
         if i_epoch % opt.save_epoch_freq == 0:
-            print('saving the model at the end of epoch %d, iters %d' % (i_epoch, total_iters))
+            print('saving the model at the end of epoch %d, iters %d' % (i_epoch, tot_iters))
             model.save_networks('latest')
             model.save_networks(i_epoch)
 

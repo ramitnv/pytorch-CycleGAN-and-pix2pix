@@ -64,7 +64,7 @@ class Visualizer():
 
     # ==========================================================================
 
-    def display_current_results(self, model, train_dataset, validation_data_gen, opt, i_epoch, i_epoch_iter, total_iters,
+    def display_current_results(self, model, train_dataset, validation_data_gen, opt, i_epoch, i_batch, total_iters,
                                 run_start_time, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
@@ -76,7 +76,7 @@ class Visualizer():
         fig_index = total_iters
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch,
-                                                                i_epoch_iter, total_iters, run_start_time)
+                                                                i_batch, total_iters, run_start_time)
 
 
         # save images to an HTML file if they haven't been saved.
@@ -85,7 +85,7 @@ class Visualizer():
             # save images to the disk
             for label, image in visuals_dict.items():
                 image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'e{i_epoch+1}_i{i_epoch_iter+1}_{label}.{file_type}')
+                img_path = os.path.join(self.img_dir, f'e{i_epoch+1}_i{i_batch+1}_{label}.{file_type}')
                 util.save_image(image_numpy, img_path)
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
@@ -100,11 +100,11 @@ class Visualizer():
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
 
-        print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_epoch_iter}, total_iter #{total_iters}')
+        print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_batch}, total_iter #{total_iters}')
 
     # ==========================================================================
 
-    def print_current_metrics(self, model, opt, train_real_actors, train_conditioning, validation_data_gen, i_epoch, i_epoch_iter, total_iters):
+    def print_current_metrics(self, model, opt, train_conditioning, validation_data_gen, i_epoch, i_batch, tot_iters, run_start_time):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -125,11 +125,18 @@ class Visualizer():
         _, val_metrics_D = model.get_D_losses(val_conditioning, val_real_actors)
 
         # add some more metrics
+        # additional metrics:
+        run_metrics = {}
+        run_metrics['i_epoch'] = i_epoch
+        run_metrics['i_batch'] = i_batch
+        run_metrics['tot_iters'] = tot_iters
+        run_metrics['LR'] = model.lr
+        run_metrics['run_hours'] = (time.time() - run_start_time) / 60 ** 2
 
         # sample several fake agents per map to calculate G out variance
         for conditioning, metrics_dict in [(train_conditioning, train_metrics_G), (val_conditioning, val_metrics_G)]:
             samples_fake_agents_vecs = []
-            for i_generator_run in range(opt.G_variability_n_ru):
+            for i_generator_run in range(opt.G_variability_n_runs):
                 samples_fake_agents_vecs.append(model.netG(conditioning).detach())
             samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
             # calculate variance across samples:
@@ -138,13 +145,11 @@ class Visualizer():
             metrics_dict['G_out_variability'] = feat_var_across_samples.mean()
 
         # print to console
-        message = f'(epoch: {1 + i_epoch}, batch: {1 + i_epoch_iter}, tot_iters: {1+total_iters}) '
+        message = '(' + ''.join([f'{name}: {num_to_str(v)} ' for name, v in run_metrics.items()]) + ')'
         message += '\nTrain: '
-        for name, v in (train_metrics_G | train_metrics_D).items():
-            message += f'{name}: {v:.2f} '
+        message += ''.join([f'{name}: {num_to_str(v)} ' for name, v in (train_metrics_G | train_metrics_D).items()])
         message += '\nValidation: '
-        for name, v in (val_metrics_G | val_metrics_D).items():
-            message += f'{name}: {v:.2f} '
+        message += ''.join([f'{name}: {num_to_str(v)} ' for name, v in (val_metrics_G | val_metrics_D).items()])
         print(message)
 
         # save to log file
@@ -164,7 +169,7 @@ class Visualizer():
     ##############################################################################################
 
 
-def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch, epoch_iter, total_iters,
+def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt, i_epoch, epoch_iter, tot_iters,
                                  run_start_time):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
@@ -176,12 +181,8 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
 
     metrics = dict()
-    metrics_type_names = ['G/out_variability', 'G/loss_GAN', 'G/loss_reconstruct', 'G/loss_total',
-                          'D/loss_classify_real', 'D/loss_classify_fake', 'D/loss_grad_penalty',
-                          'D/loss_total', 'D/logit(fake)', 'D/logit(real)']
 
     for dataset_name, dataset in datasets.items():
-        metrics_names = [f'{dataset_name}/{type_name}' for type_name in metrics_type_names]
 
         assert vis_n_generator_runs >= 1
         map_id = 0
@@ -208,25 +209,12 @@ def get_metrics_stats_and_images(model, train_dataset, validation_data_gen, opt,
                     if opt.use_wandb:
                         wandb_logs[log_label].append(wandb_img)
 
-            samples_fake_agents_vecs = []
-            for i_generator_run in range(G_variability_n_runs):
-                samples_fake_agents_vecs.append(model.netG(conditioning).detach())
-            samples_fake_agents_vecs = torch.stack(samples_fake_agents_vecs)
-            # calculate variance across samples:
-            feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
-            # Avg all out feat:
-            metrics[f'{dataset_name}/G/out_variability'][map_id] = feat_var_across_samples.mean()
             map_id += 1
 
     # Average over the maps:
     for key, val in metrics.items():
         metrics[key] = val.mean()
 
-    # additional metrics:
-    metrics['run/LR'] = model.lr
-    metrics['run/epoch'] = 1 + i_epoch
-    metrics['run/total_iters'] = total_iters
-    metrics['run/run_hours'] = (time.time() - run_start_time) / 60 ** 2
 
     if opt.use_wandb:
         wandb.log(metrics)
@@ -284,3 +272,9 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
     if use_wandb:
         wandb.log(ims_dict)
 ##############################################################################################
+
+def num_to_str(x):
+    if isinstance(x, int):
+        return str(x)
+    else:
+        return f'{x:.2f}'
