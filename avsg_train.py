@@ -83,7 +83,7 @@ if __name__ == '__main__':
                                                    i_batch, tot_iters)
 
             # cache our latest model every <save_latest_freq> iterations:
-            if tot_iters % opt.save_latest_freq == 0:
+            if tot_iters > 0 and tot_iters % opt.save_latest_freq == 0:
                 print('saving the latest model (epoch %d, tot_iters %d)' % (i_epoch, tot_iters))
                 save_suffix = 'iter_%d' % tot_iters if opt.save_by_iter else 'latest'
                 model.save_networks(save_suffix)
