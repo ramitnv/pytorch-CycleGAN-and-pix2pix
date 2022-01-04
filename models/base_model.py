@@ -1,8 +1,11 @@
 import os
-import torch
+from abc import ABC
 from collections import OrderedDict
-from abc import ABC, abstractmethod
+
+import torch
+
 from models.helper_func import get_scheduler
+
 
 class BaseModel(ABC):
     """This class is an abstract base class (ABC) for models.

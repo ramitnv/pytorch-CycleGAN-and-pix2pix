@@ -1,7 +1,9 @@
 import torch
-from models.base_model import BaseModel
-from models import networks
+
 from avsg_utils import pre_process_scene_data
+from models import networks
+from models.base_model import BaseModel
+
 
 class AvsgCheckDiscrModel(BaseModel):
 

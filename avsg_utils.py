@@ -114,33 +114,33 @@ def get_agents_descriptions(agents_feat_dicts):
 
 
 #########################################################################################
-
-def calc_agents_feats_stats(dataset, agent_feat_vec_coord_labels, device, num_agents, polygon_name_order):
-    ##### Find data normalization parameters
-
-    dim_agent_feat_vec = len(agent_feat_vec_coord_labels)
-    sum_agent_feat = torch.zeros(dim_agent_feat_vec, device=device)
-    count = 0
-    for scene in dataset:
-        agents_feat_dict = scene['agents_feat']
-        is_valid, agents_feat_vec = filter_and_preprocess_agent_feat(agents_feat_dict, num_agents, agent_feat_vec_coord_labels, device)
-        if is_valid:
-            sum_agent_feat += agents_feat_vec.sum(dim=0)  # sum all agents in the scene
-            count += agents_feat_vec.shape[0]  # count num agents summed
-    agent_feat_mean = sum_agent_feat / count  # avg across all agents in all scenes
-
-    count = 0
-    sum_sqr_div_agent_feat = torch.zeros(dim_agent_feat_vec, device=device)
-    for scene in dataset:
-        agents_feat_dict = scene['agents_feat']
-        is_valid, agents_feat_vec = filter_and_preprocess_agent_feat(agents_feat_dict, num_agents, agent_feat_vec_coord_labels, device)
-        if is_valid:
-            count += agents_feat_vec.shape[0]  # count num agents summed
-            sum_sqr_div_agent_feat += torch.sum(
-                torch.pow(agents_feat_vec - agent_feat_mean, 2), dim=0)  # sum all agents in the scene
-    agent_feat_std = torch.sqrt(sum_sqr_div_agent_feat / count)
-
-    return agent_feat_mean, agent_feat_std
+#
+# def calc_agents_feats_stats(dataset, agent_feat_vec_coord_labels, device, num_agents, polygon_name_order):
+#     ##### Find data normalization parameters
+#
+#     dim_agent_feat_vec = len(agent_feat_vec_coord_labels)
+#     sum_agent_feat = torch.zeros(dim_agent_feat_vec, device=device)
+#     count = 0
+#     for scene in dataset:
+#         agents_feat_dict = scene['agents_feat']
+#         is_valid, agents_feat_vec = filter_and_preprocess_agent_feat(agents_feat_dict, num_agents, agent_feat_vec_coord_labels, device)
+#         if is_valid:
+#             sum_agent_feat += agents_feat_vec.sum(dim=0)  # sum all agents in the scene
+#             count += agents_feat_vec.shape[0]  # count num agents summed
+#     agent_feat_mean = sum_agent_feat / count  # avg across all agents in all scenes
+#
+#     count = 0
+#     sum_sqr_div_agent_feat = torch.zeros(dim_agent_feat_vec, device=device)
+#     for scene in dataset:
+#         agents_feat_dict = scene['agents_feat']
+#         is_valid, agents_feat_vec = filter_and_preprocess_agent_feat(agents_feat_dict, num_agents, agent_feat_vec_coord_labels, device)
+#         if is_valid:
+#             count += agents_feat_vec.shape[0]  # count num agents summed
+#             sum_sqr_div_agent_feat += torch.sum(
+#                 torch.pow(agents_feat_vec - agent_feat_mean, 2), dim=0)  # sum all agents in the scene
+#     agent_feat_std = torch.sqrt(sum_sqr_div_agent_feat / count)
+#
+#     return agent_feat_mean, agent_feat_std
     #########################################################################################
     #
     #

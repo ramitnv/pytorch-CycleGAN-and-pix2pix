@@ -1,10 +1,8 @@
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from matplotlib.patches import Rectangle
-import time
-
 
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300

@@ -28,13 +28,14 @@ The script supports continue/resume training. Use '--continue_train' to resume y
 
 Note: if you get CUDA Unknown error, try $ apt-get install nvidia-modprobe
 """
+import itertools
 import time
-from options.train_options import TrainOptions
+
+from avsg_utils import pre_process_scene_data
 from data import create_dataset
 from models import create_model
+from options.train_options import TrainOptions
 from util.visualizer import Visualizer
-from avsg_utils import pre_process_scene_data
-import itertools
 
 if __name__ == '__main__':
     run_start_time = time.time()

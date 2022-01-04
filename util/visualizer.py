@@ -1,10 +1,12 @@
-import os
 import ntpath
+import os
 import time
+
 import torch
-from . import util, html
+
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
 from util.avsg_visualization_utils import visualize_scene_feat
+from . import util, html
 
 try:
     import wandb

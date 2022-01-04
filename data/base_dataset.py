@@ -2,8 +2,9 @@
 
 It also includes common transformation functions (e.g., get_transform, __scale_width), which can be later used in subclasses.
 """
-import torch.utils.data as data
 from abc import ABC, abstractmethod
+
+import torch.utils.data as data
 
 
 class BaseDataset(data.Dataset, ABC):

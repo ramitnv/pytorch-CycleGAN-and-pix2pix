@@ -13,11 +13,10 @@ Note: if you get CUDA Uknown error, try $ apt-get install nvidia-modprobe
 import time
 
 import wandb
-
 from data import create_dataset
 from models import create_model
-from options.train_options import TrainOptions
 from models.helper_func import run_validation
+from options.train_options import TrainOptions
 from util.visualizer import Visualizer
 
 if __name__ == '__main__':

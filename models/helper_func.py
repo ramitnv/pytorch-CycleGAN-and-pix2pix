@@ -1,8 +1,10 @@
+import functools
+
 import torch
 import torch.nn as nn
 from torch.nn import init
-import functools
 from torch.optim import lr_scheduler
+
 
 def run_validation(model, eval_dataset, n_batches=0):
     is_training = model.isTrain

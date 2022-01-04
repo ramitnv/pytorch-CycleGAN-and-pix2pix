@@ -17,11 +17,10 @@ You need to implement the following functions:
 """
 
 import torch
-from .base_model import BaseModel
-from . import networks
-from avsg_utils import pre_process_scene_data
+
 from models.networks import cal_gradient_penalty
-import torch.nn.utils.parametrize as nnp
+from . import networks
+from .base_model import BaseModel
 
 
 #########################################################################################
