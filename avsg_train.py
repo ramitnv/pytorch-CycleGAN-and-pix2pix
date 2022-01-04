@@ -78,7 +78,7 @@ if __name__ == '__main__':
                 visualizer.print_current_metrics(model, opt, conditioning, validation_data_gen, i_epoch, i_batch,
                                                  tot_iters, run_start_time)
             # Display visualizations:
-            if tot_iters % opt.display_freq == 0:
+            if tot_iters > 0 and tot_iters % opt.display_freq == 0:
                 visualizer.display_current_results(model,  real_actors, conditioning, validation_data_gen, opt, i_epoch,
                                                    i_batch, tot_iters)
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             tot_iters += 1
 
         # cache our model every <save_epoch_freq> epochs:
-        if i_epoch % opt.save_epoch_freq == 0:
+        if i_epoch > 0 and i_epoch % opt.save_epoch_freq == 0:
             print('saving the model at the end of epoch %d, iters %d' % (i_epoch, tot_iters))
             model.save_networks('latest')
             model.save_networks(i_epoch)
