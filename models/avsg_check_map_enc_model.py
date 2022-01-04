@@ -1,6 +1,6 @@
 import torch
 from models.base_model import BaseModel
-from models import avsg_networks
+from models import avsg_main_modules
 from avsg_utils import pre_process_scene_data
 
 class AvsgCheckMapEncModel(BaseModel):

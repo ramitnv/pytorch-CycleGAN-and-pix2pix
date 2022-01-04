@@ -94,8 +94,15 @@ class PointNet(nn.Module):
                 h = self.layer_normalizer(h)
             h = F.relu(h)
         # apply permutation invariant aggregation over all elements
-        # max-pooling in our case
-        h = torch.max(h, dim=0).values
+
+        if self.point_net_aggregate_func == 'max':
+            h = torch.max(h, dim=0).values
+        elif self.point_net_aggregate_func == 'sum':
+            h = torch.sum(h, dim=0).values
+        elif self.point_net_aggregate_func == 'log_softmax':
+            h = torch.log_softmax(h, dim=0).values
+        else:
+            raise NotImplementedError
         h = self.out_layer(h)
         return h
 

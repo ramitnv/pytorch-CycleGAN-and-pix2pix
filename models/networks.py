@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from .imgs_networks import ResnetGenerator, UnetGenerator, NLayerDiscriminator, PixelDiscriminator
-from .avsg_networks import SceneGenerator, SceneDiscriminator
+from .avsg_main_modules import SceneGenerator, SceneDiscriminator
 from models.helper_func import get_norm_layer, init_net
 ###############################################################################
 # Helper Functions
