@@ -69,7 +69,7 @@ class AvsgModel(BaseModel):
                 save_latest_freq=1e6,  #  requency of saving the latest results
             )
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
-            parser.add_argument('--lambda_reconstruct', type=float, default=1., help='weight for reconstruct_loss ')
+            parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
             parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
             parser.add_argument('--lambda_spect_norm_D', type=float, default=1., help=" ")
             parser.add_argument('--lambda_spect_norm_G', type=float, default=1., help=" ")
@@ -132,7 +132,7 @@ class AvsgModel(BaseModel):
             # ~~~~ Display settings
             parser.set_defaults(
                 print_freq=1,
-                display_freq=5)
+                display_freq=1)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=3, help='')
             parser.add_argument('--G_variability_n_runs', type=int, default=5, help='')
