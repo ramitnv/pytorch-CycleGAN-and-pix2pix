@@ -60,7 +60,7 @@ class AvsgModel(BaseModel):
             # ~~~~  Training optimization settings
             parser.set_defaults(
                 n_epochs=100,
-                batch_size=64,
+                batch_size=32,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
                 lr_decay_iters=1000,  # if lr_policy==step'

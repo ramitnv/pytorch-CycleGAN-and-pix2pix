@@ -127,7 +127,7 @@ class Visualizer:
     # ==========================================================================
 
     def display_current_results(self, model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch,
-                                i_batch, total_iters, file_type='jpg'):
+                                i_batch, tot_iters, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
@@ -135,10 +135,10 @@ class Visualizer:
             epoch (int) - - the current epoch
             save_result (bool) - - if save the current results to an HTML file
         """
-        fig_index = total_iters
+        fig_index = tot_iters
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt,
-                                              i_epoch, i_batch)
+                                              i_epoch, i_batch, tot_iters)
 
         # save images to an HTML file if they haven't been saved.
         if self.use_html and not self.saved:
@@ -166,12 +166,12 @@ class Visualizer:
                 for log_label, log_data in wandb_logs.items():
                     self.wandb_run.log({log_label: log_data})
 
-        print(f'Figure saved. epoch #{i_epoch+1}, epoch_iter #{i_batch+1}, total_iter #{total_iters+1}')
+        print(f'Figure saved. epoch #{i_epoch+1}, epoch_iter #{i_batch+1}, total_iter #{tot_iters + 1}')
 
     # ==========================================================================
 
 
-def get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch, i_batch):
+def get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch, i_batch, tot_iters):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
@@ -195,9 +195,9 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
                             'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
 
             # Add an image of the map & real agents to wandb logs
-            log_label = f"{dataset_name}/epoch_{i_epoch + 1}/iter_{i_batch + 1}/map_{i_map + 1}"
+            log_label = f"{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}"
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
-            visuals_dict[f'{dataset_name}_map_{i_map + 1}_real_agents'] = img
+            visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
 
@@ -206,7 +206,7 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
 
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
-                visuals_dict[f'{dataset_name}_map__{i_map + 1}_fake__{i_generator_run + 1}'] = img
+                visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}__map_{i_map + 1}_fake__{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
 
