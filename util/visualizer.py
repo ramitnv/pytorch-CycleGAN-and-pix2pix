@@ -38,7 +38,7 @@ class Visualizer:
         self.name = opt.name
         self.saved = False
         self.use_wandb = opt.use_wandb
-        self.current_fig_index = (0, 0)
+        self.current_fig_index = 0
         self.plotted_inds = []
 
         if self.use_wandb:
@@ -160,6 +160,11 @@ class Visualizer:
                     links.append(img_path)
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
+        if self.use_wandb:
+            if fig_index != self.current_fig_index:
+                self.current_fig_index = fig_index
+                for log_label, log_data in wandb_logs.items():
+                    self.wandb_run.log({log_label: log_data})
 
         print(f'Figure saved. epoch #{i_epoch}, epoch_iter #{i_batch}, total_iter #{total_iters}')
 
