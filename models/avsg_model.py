@@ -192,7 +192,6 @@ class AvsgModel(BaseModel):
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
         #########################################################################################
 
-
     def get_D_losses(self, conditioning, real_actors):
         """Calculate loss for the discriminator"""
 
@@ -220,7 +219,8 @@ class AvsgModel(BaseModel):
         loss_spect_norm_D = 0
 
         # combine losses
-        loss_D = loss_D_classify_fake + loss_D_classify_real + self.lambda_gp * loss_D_grad_penalty \
+        loss_D = loss_D_classify_fake + loss_D_classify_real \
+                 + self.lambda_gp * loss_D_grad_penalty \
                  + self.lambda_spect_norm_D * loss_spect_norm_D
 
         log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,

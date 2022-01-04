@@ -46,6 +46,7 @@ class PointNet(nn.Module):
         self.d_in = d_in
         self.d_out = d_out
         self.d_hid = d_hid
+        self.point_net_aggregate_func = opt.point_net_aggregate_func
         self.layer_dims = [d_in] + (n_layers - 1) * [d_hid] + [d_out]
         self.matA = {}
         self.matB = {}
@@ -96,11 +97,11 @@ class PointNet(nn.Module):
         # apply permutation invariant aggregation over all elements
 
         if self.point_net_aggregate_func == 'max':
-            h = torch.max(h, dim=0).values
+            h = h.max(dim=0)
         elif self.point_net_aggregate_func == 'sum':
-            h = torch.sum(h, dim=0).values
+            h = h.sum(dim=0)
         elif self.point_net_aggregate_func == 'log_softmax':
-            h = torch.log_softmax(h, dim=0).values
+            h = h.log_softmax(dim=0)
         else:
             raise NotImplementedError
         h = self.out_layer(h)
