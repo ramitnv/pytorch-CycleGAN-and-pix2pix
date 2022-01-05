@@ -85,17 +85,16 @@ def visualize_scene_feat(agents_feat, map_feat):
     V = speed * np.sin(yaws)
 
     fig, ax = plt.subplots()
+
     n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
-
-    # make sure all lane polygons are the same length
-    assert torch.all(map_feat['lanes_left_valid'].sum(dim=-1) == n_valid_lane_points)
-    assert torch.all(map_feat['lanes_mid_valid'].sum(dim=-1) == n_valid_lane_points)
-
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
         plot_lanes(ax,  map_feat['lanes_left'][i_elem][:n_valid_pnts],  map_feat['lanes_right'][:n_valid_pnts],
                    facecolor='grey', alpha=0.3, edgecolor='black',  label='Lanes')
-        plot_poly_elems(ax,    map_feat['lanes_mid'][i_elem][:n_valid_pnts],
-                        facecolor='lime', alpha=0.4, edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
+
+    n_valid_lane_points = map_feat['lanes_mid_valid'].sum(dim=-1)
+    for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
+        plot_poly_elems(ax, map_feat['lanes_mid'][i_elem][:n_valid_pnts],  facecolor='lime', alpha=0.4,
+                        edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
 
     n_valid_cw_points = map_feat['crosswalks_valid'].sum(dim=-1)
 
