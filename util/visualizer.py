@@ -4,7 +4,7 @@ import time
 
 import torch
 
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, get_single_conditionig_from_batch
+from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
 
@@ -191,7 +191,7 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
         for i_map in range(vis_n_maps):
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map]
-            conditioning = get_single_conditionig_from_batch(conditioning_batch, i_map)
+            conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
             log_label = f"{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}"

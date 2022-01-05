@@ -2,20 +2,31 @@ import numpy as np
 import torch
 
 
+#########################################################################################
 
 def get_single_map_from_batch(map_feat_batch, i_map):
     map_feat = {poly_type: map_feat_batch[poly_type][i_map] for poly_type in map_feat_batch.keys()}
     return map_feat
+
+
 #########################################################################################
 
-def get_single_conditionig_from_batch(conditioning_batch, i_map):
+def get_single_conditioning_from_batch(conditioning_batch, i_map):
     map_feat = get_single_map_from_batch(conditioning_batch['map_feat'], i_map)
     conditioning = {'map_feat': map_feat,
                     'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
     return conditioning
 
+
 #########################################################################################
 
+def get_poly_n_points_per_element(map_feat, poly_type):
+    poly_elements_valid = map_feat[poly_type + '_valid']
+    poly_n_points_per_element = poly_elements_valid.sum(dim=-1)
+    return poly_n_points_per_element
+
+
+#########################################################################################
 
 def agents_feat_vecs_to_dicts(agents_feat_vecs):
     assert agents_feat_vecs.ndim == 2
@@ -37,9 +48,7 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs):
 #########################################################################################
 
 
-
 def pre_process_scene_data(scenes_batch, opt):
-
     batch_len = len(scenes_batch['n_actors_in_scene'])
     agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
     device = opt.device
@@ -79,11 +88,12 @@ def pre_process_scene_data(scenes_batch, opt):
 
             for poly_type in opt.polygon_name_order:
                 elems = scenes_batch['map_feat'][poly_type][i_scene]
+                n_points_per_element = get_poly_n_points_per_element(scenes_batch['map_feat'], poly_type)[i_scene]
                 for i_elem, poly_elem in enumerate(elems):
-                    for i_point, point in enumerate(poly_elem):
-                        if scenes_batch['map_feat'][poly_type+'_valid'][i_scene, i_elem, i_point]:
-                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] = rot_mat @ point
-                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] += pos_shift
+                    for i_point in range(n_points_per_element[i_elem]):
+                        point = scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point]
+                        point = (rot_mat @ point) + pos_shift
+                        scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] = point
 
         elif opt.augmentation_type == 'Gaussian_data':
             # Replace all the agent features data to gaussian samples... for debug
@@ -103,6 +113,8 @@ def pre_process_scene_data(scenes_batch, opt):
     conditioning = {'map_feat': scenes_batch['map_feat'], 'n_actors_in_scene': scenes_batch['n_actors_in_scene']}
     real_actors = scenes_batch['agents_feat']
     return real_actors, conditioning
+
+
 #########################################################################################
 
 
@@ -123,7 +135,6 @@ def get_agents_descriptions(agents_feat_dicts):
         txt_descript.append(
             f"#{i}, {type_label}, ({x:.1f},{y:.1f}), {yaw_deg:.1f}\u00B0, {length:.1f}\u00D7{width:.1f}")
     return txt_descript
-
 
 #########################################################################################
 #
@@ -153,14 +164,12 @@ def get_agents_descriptions(agents_feat_dicts):
 #     agent_feat_std = torch.sqrt(sum_sqr_div_agent_feat / count)
 #
 #     return agent_feat_mean, agent_feat_std
-    #########################################################################################
-    #
-    #
-    # def get_normalized_agent_feat(self, feat):
-    #     nrm_feat = torch.clone(feat)
-    #     nrm_feat[:, self.agent_feat_to_nrm] -= self.agent_feat_mean[self.agent_feat_to_nrm]
-    #     nrm_feat[:, self.agent_feat_to_nrm] /= self.agent_feat_std[self.agent_feat_to_nrm]
-    #     return nrm_feat
-    #########################################################################################
-
-
+#########################################################################################
+#
+#
+# def get_normalized_agent_feat(self, feat):
+#     nrm_feat = torch.clone(feat)
+#     nrm_feat[:, self.agent_feat_to_nrm] -= self.agent_feat_mean[self.agent_feat_to_nrm]
+#     nrm_feat[:, self.agent_feat_to_nrm] /= self.agent_feat_std[self.agent_feat_to_nrm]
+#     return nrm_feat
+#########################################################################################

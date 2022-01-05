@@ -85,12 +85,24 @@ def visualize_scene_feat(agents_feat, map_feat):
     V = speed * np.sin(yaws)
 
     fig, ax = plt.subplots()
-    plot_lanes(ax, map_feat['lanes_left'], map_feat['lanes_right'], facecolor='grey', alpha=0.3, edgecolor='black',
-               label='Lanes')
-    plot_poly_elems(ax, map_feat['lanes_mid'], facecolor='lime', alpha=0.4, edgecolor='lime', label='Lanes mid',
-                    is_closed=False, linewidth=1)
-    plot_poly_elems(ax, map_feat['crosswalks'], facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks',
-                    is_closed=True)
+    n_lane_elems = map_feat['lanes_left'].shape[0]
+    n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
+
+    # make sure all lane polygons are the same length
+    assert np.all(map_feat['lanes_left_valid'].sum(dim=-1) == n_valid_lane_points)
+    assert np.all(map_feat['lanes_mid_valid'].sum(dim=-1) == n_valid_lane_points)
+
+    for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
+        plot_lanes(ax,  map_feat['lanes_left'][i_elem][:n_valid_pnts],  map_feat['lanes_right'][:n_valid_pnts],
+                   facecolor='grey', alpha=0.3, edgecolor='black',  label='Lanes')
+        plot_poly_elems(ax,    map_feat['lanes_mid'][i_elem][:n_valid_pnts],
+                        facecolor='lime', alpha=0.4, edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
+
+    n_valid_cw_points = map_feat['crosswalks_valid'].sum(dim=-1)
+
+    for i_elem, n_valid_pnts in enumerate(n_valid_cw_points):
+        plot_poly_elems(ax, map_feat['crosswalks'][:n_valid_pnts],
+                        facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks',  is_closed=True)
 
     n_agents = len(agents_feat)
     if n_agents > 0:
