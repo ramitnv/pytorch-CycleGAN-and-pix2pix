@@ -106,7 +106,6 @@ def visualize_scene_feat(agents_feat, map_feat):
     canvas.draw()
     data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
     image = data.reshape(canvas.get_width_height()[::-1] + (3,))
-    ### DEBUG: plt.show()
     plt.close(fig)
     return image
 

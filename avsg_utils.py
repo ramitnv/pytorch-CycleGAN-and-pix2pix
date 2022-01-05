@@ -5,7 +5,7 @@ import torch
 
 def get_single_map_from_batch(map_feat_batch, i_map):
     map_feat = {poly_type: map_feat_batch[poly_type][i_map] for poly_type in map_feat_batch.keys()}
-
+    return map_feat
 #########################################################################################
 
 def get_single_conditionig_from_batch(conditioning_batch, i_map):
