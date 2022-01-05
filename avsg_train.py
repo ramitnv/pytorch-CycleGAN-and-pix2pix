@@ -8,7 +8,7 @@ $ python -m avsg_train
 
 * To run only on CPU add: --gpu_ids -1
 
-* To yse wandb logging,
+* To use wandb logging,
 run $ wandb login
 and add run parameter --use_wandb
 
