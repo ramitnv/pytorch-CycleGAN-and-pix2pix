@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,19 +10,24 @@ plt.rcParams['savefig.dpi'] = 300
 ######################################################################
 
 
-def plot_poly_elems(ax, poly, facecolor='0.4', alpha=0.3, edgecolor='black', label='', is_closed=False, linewidth=1):
-    first_plt = True
-    for elem in poly:
-        x = elem[:, 0].detach().cpu()
-        y = elem[:, 1].detach().cpu()
-        if first_plt:
-            first_plt = False
-        else:
-            label = None
-        if is_closed:
-            ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-        else:
-            ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
+def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', is_closed=False,
+                   linewidth=1):
+    x = elem[:, 0].detach().cpu()
+    y = elem[:, 1].detach().cpu()
+    if i_elem > 0:
+        label = None
+    if is_closed:
+        ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
+    else:
+        ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
+
+
+##############################################################################################
+def set_1_dim(tsr):
+    assert tsr.ndim < 2
+    if tsr.ndim == 0:
+        tsr = tsr.unsqueeze(0)
+    return tsr
 
 
 ##############################################################################################
@@ -34,10 +38,10 @@ def plot_lanes(ax, left_lanes, right_lanes, facecolor='0.4', alpha=0.3, edgecolo
     n_elems = min(len(left_lanes), len(right_lanes))
     first_plt = True
     for i in range(n_elems):
-        x_left = left_lanes[i][:, 0]
-        y_left = left_lanes[i][:, 1]
-        x_right = right_lanes[i][:, 0]
-        y_right = right_lanes[i][:, 1]
+        x_left = set_1_dim(left_lanes[i][0])
+        y_left = set_1_dim(left_lanes[i][1])
+        x_right = set_1_dim(right_lanes[i][0])
+        y_right = set_1_dim(right_lanes[i][1])
         x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
         y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
         if first_plt:
@@ -88,19 +92,19 @@ def visualize_scene_feat(agents_feat, map_feat):
 
     n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
-        plot_lanes(ax,  map_feat['lanes_left'][i_elem][:n_valid_pnts],  map_feat['lanes_right'][:n_valid_pnts],
-                   facecolor='grey', alpha=0.3, edgecolor='black',  label='Lanes')
+        plot_lanes(ax, map_feat['lanes_left'][i_elem][:n_valid_pnts], map_feat['lanes_right'][:n_valid_pnts],
+                   facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
 
     n_valid_lane_points = map_feat['lanes_mid_valid'].sum(dim=-1)
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
-        plot_poly_elems(ax, map_feat['lanes_mid'][i_elem][:n_valid_pnts],  facecolor='lime', alpha=0.4,
-                        edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
+        plot_poly_elem(ax, map_feat['lanes_mid'][i_elem][:n_valid_pnts], i_elem,
+                       facecolor='lime', alpha=0.4, edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
 
     n_valid_cw_points = map_feat['crosswalks_valid'].sum(dim=-1)
 
     for i_elem, n_valid_pnts in enumerate(n_valid_cw_points):
-        plot_poly_elems(ax, map_feat['crosswalks'][:n_valid_pnts],
-                        facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks',  is_closed=True)
+        plot_poly_elem(ax, map_feat['crosswalks'][:n_valid_pnts], i_elem,
+                       facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks', is_closed=True)
 
     n_agents = len(agents_feat)
     if n_agents > 0:
@@ -118,4 +122,3 @@ def visualize_scene_feat(agents_feat, map_feat):
     image = data.reshape(canvas.get_width_height()[::-1] + (3,))
     plt.close(fig)
     return image
-
