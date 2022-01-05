@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 
-
 #########################################################################################
 
 def get_single_map_from_batch(map_feat_batch, i_map):

@@ -5,6 +5,15 @@ import numpy as np
 import torch
 from PIL import Image
 
+##############################################################################################
+def make_tensor_1d(tsr):
+    assert tsr.ndim < 2
+    if tsr.ndim == 0:
+        tsr = tsr.unsqueeze(0)
+    return tsr
+
+##############################################################################################
+
 
 def tensor2im(input_image, imtype=np.uint8):
     """"Converts a Tensor array into a numpy image array.

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
+from util.util import make_tensor_1d
 
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
@@ -23,14 +24,6 @@ def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='blac
 
 
 ##############################################################################################
-def set_1_dim(tsr):
-    assert tsr.ndim < 2
-    if tsr.ndim == 0:
-        tsr = tsr.unsqueeze(0)
-    return tsr
-
-
-##############################################################################################
 
 
 def plot_lanes(ax, left_lanes, right_lanes, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
@@ -38,10 +31,10 @@ def plot_lanes(ax, left_lanes, right_lanes, facecolor='0.4', alpha=0.3, edgecolo
     n_elems = min(len(left_lanes), len(right_lanes))
     first_plt = True
     for i in range(n_elems):
-        x_left = set_1_dim(left_lanes[i][0])
-        y_left = set_1_dim(left_lanes[i][1])
-        x_right = set_1_dim(right_lanes[i][0])
-        y_right = set_1_dim(right_lanes[i][1])
+        x_left = make_tensor_1d(left_lanes[i][0])
+        y_left = make_tensor_1d(left_lanes[i][1])
+        x_right = make_tensor_1d(right_lanes[i][0])
+        y_right = make_tensor_1d(right_lanes[i][1])
         x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
         y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
         if first_plt:
@@ -89,6 +82,7 @@ def visualize_scene_feat(agents_feat, map_feat):
     V = speed * np.sin(yaws)
 
     fig, ax = plt.subplots()
+    plt.ioff()  # https://www.delftstack.com/howto/matplotlib/how-to-save-plots-as-an-image-file-without-displaying-in-matplotlib/#avoid-display-with-ioff-method
 
     n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):

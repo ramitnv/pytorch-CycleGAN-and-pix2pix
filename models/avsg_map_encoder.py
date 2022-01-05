@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from avsg_utils import get_poly_n_points_per_element
+from util.util import make_tensor_1d
 from models.avsg_sub_moudules import MLP, PointNet
 
 
@@ -106,6 +107,7 @@ class MapEncoder(nn.Module):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
             poly_n_points_per_element = get_poly_n_points_per_element(map_feat, poly_type)
+            poly_n_points_per_element = make_tensor_1d(poly_n_points_per_element)
             if poly_n_points_per_element.sum() == 0:
                 # if there are no polygon of this type in the scene:
                 latent_poly_type = torch.zeros(self.dim_latent_polygon_type, device=self.device)
