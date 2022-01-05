@@ -2,6 +2,18 @@ import numpy as np
 import torch
 
 
+
+def get_single_map_from_batch(map_feat_batch, i_map):
+    map_feat = {poly_type: map_feat_batch[poly_type][i_map] for poly_type in map_feat_batch.keys()}
+
+#########################################################################################
+
+def get_single_conditionig_from_batch(conditioning_batch, i_map):
+    map_feat = get_single_map_from_batch(conditioning_batch['map_feat'], i_map)
+    conditioning = {'map_feat': map_feat,
+                    'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
+    return conditioning
+
 #########################################################################################
 
 

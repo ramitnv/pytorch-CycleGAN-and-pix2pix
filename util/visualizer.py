@@ -4,7 +4,7 @@ import time
 
 import torch
 
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions
+from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, get_single_conditionig_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
 
@@ -72,9 +72,8 @@ class Visualizer:
 
 
         Parameters:
-            epoch (int) -- current epoch
-            iters (int) -- current training iteration during this epoch (reset to 0 at the end of every epoch)
-            losses (OrderedDict) -- training losses stored in the format of (name, float) pairs
+            i_epoch (int) -- current epoch
+            i_batch (int) -- current training iteration during this epoch (reset to 0 at the end of every epoch)
 
         """
         model.eval()
@@ -192,26 +191,22 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
         for i_map in range(vis_n_maps):
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map]
-            map_feat = {poly_type: conditioning_batch['map_feat'][poly_type][i_map] for poly_type in conditioning_batch['map_feat'].keys()}
-            conditioning = {'map_feat': map_feat,
-                            'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
+            conditioning = get_single_conditionig_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
             log_label = f"{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}"
-            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real_agents')
+            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real')
             visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
 
             for i_generator_run in range(vis_n_generator_runs):
                 fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
-
                 # Add an image of the map & fake agents to wandb logs
-                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label='real_agents')
+                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label=f'fake_{1+i_generator_run}')
                 visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}__map_{i_map + 1}_fake__{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
-
     if opt.isTrain:
         model.train()
     return visuals_dict, wandb_logs
@@ -220,8 +215,9 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
 #########################################################################################
 
 def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
-    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
+    assert agents_vecs.ndim == 2  # [n_agents x feat_dim]
     real_map = conditioning['map_feat']
+    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
     img = visualize_scene_feat(agents_feat_dicts, real_map)
     pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
     caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
@@ -229,8 +225,6 @@ def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
 
-
-#########################################################################################
 ##############################################################################################
 
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False, file_type='png'):
