@@ -106,10 +106,6 @@ class MapEncoder(nn.Module):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
             poly_n_points_per_element = get_poly_n_points_per_element(map_feat, poly_type)
-            # poly_elements_valid = map_feat[poly_type+'_valid']
-            # if poly_elements_valid.ndim == 1:
-            #     poly_elements_valid = poly_elements_valid.unsqueeze(0)
-            # poly_n_points_per_element = poly_elements_valid.sum(dim=1)
             if poly_n_points_per_element.sum() == 0:
                 # if there are no polygon of this type in the scene:
                 latent_poly_type = torch.zeros(self.dim_latent_polygon_type, device=self.device)

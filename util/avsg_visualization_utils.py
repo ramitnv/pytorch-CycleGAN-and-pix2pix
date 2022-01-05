@@ -85,12 +85,11 @@ def visualize_scene_feat(agents_feat, map_feat):
     V = speed * np.sin(yaws)
 
     fig, ax = plt.subplots()
-    n_lane_elems = map_feat['lanes_left'].shape[0]
     n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
 
     # make sure all lane polygons are the same length
-    assert np.all(map_feat['lanes_left_valid'].sum(dim=-1) == n_valid_lane_points)
-    assert np.all(map_feat['lanes_mid_valid'].sum(dim=-1) == n_valid_lane_points)
+    assert torch.all(map_feat['lanes_left_valid'].sum(dim=-1) == n_valid_lane_points)
+    assert torch.all(map_feat['lanes_mid_valid'].sum(dim=-1) == n_valid_lane_points)
 
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
         plot_lanes(ax,  map_feat['lanes_left'][i_elem][:n_valid_pnts],  map_feat['lanes_right'][:n_valid_pnts],
