@@ -215,6 +215,8 @@ def get_images(model, train_real_actors, train_conditioning, validation_data_gen
 #########################################################################################
 
 def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
+    if agents_vecs.ndim == 1:
+        agents_vecs = agents_vecs.unsqueeze(0)
     assert agents_vecs.ndim == 2  # [n_agents x feat_dim]
     real_map = conditioning['map_feat']
     agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
