@@ -17,7 +17,6 @@ You need to implement the following functions:
 """
 
 import torch
-
 from models.networks import cal_gradient_penalty
 from . import networks
 from .base_model import BaseModel
@@ -218,6 +217,19 @@ class AvsgModel(BaseModel):
         # snm = torch.nn.utils.parametrizations.spectral_norm(self.netD)
         # loss_spect_norm_D = torch.linalg.matrix_norm(snm.weight, 2)
         loss_spect_norm_D = 0
+
+        def is_weighted_layer(layer):
+            layers_types = [torch.nn.Linear, torch.nn.Conv1d,  torch.nn.Conv2d]
+            return any([isinstance(layer, typ) for typ in layers_types])
+
+        def get_spectral_norm(net):
+            for name, layer in net.named_children():
+                if is_weighted_layer(layer):
+                    L.append(name)
+            return L
+
+        L = get_spectral_norm(self.netD)
+
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real \
