@@ -27,11 +27,11 @@ def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='blac
 ##############################################################################################
 
 
-def plot_lanes(ax, left_lanes, right_lanes, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
+def plot_lanes(ax, left_lanes, right_lanes, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
     # assert len(left_lanes) == len(right_lanes)
     assert left_lanes.ndim == right_lanes.ndim == 2
     n_elems = min(len(left_lanes), len(right_lanes))
-    first_plt = True
+    first_plt = i_elem == 0
     for i in range(n_elems):
         x_left = make_tensor_1d(left_lanes[i][0])
         y_left = make_tensor_1d(left_lanes[i][1])
@@ -89,7 +89,7 @@ def visualize_scene_feat(agents_feat, map_feat):
     n_valid_lane_points = map_feat['lanes_left_valid'].sum(dim=-1)
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
         plot_lanes(ax, map_feat['lanes_left'][i_elem][:n_valid_pnts], map_feat['lanes_right'][i_elem][:n_valid_pnts],
-                   facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
+                   i_elem, facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
 
     n_valid_lane_points = map_feat['lanes_mid_valid'].sum(dim=-1)
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
