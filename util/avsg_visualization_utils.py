@@ -79,7 +79,7 @@ def visualize_scene_feat(agents_feat, map_feat):
     fig, ax = plt.subplots()
     plt.ioff()  # https://www.delftstack.com/howto/matplotlib/how-to-save-plots-as-an-image-file-without-displaying-in-matplotlib/#avoid-display-with-ioff-method
 
-    n_valid_lane_points = min(map_feat['lanes_left_valid'].sum(dim=-1), map_feat['lanes_right_valid'].sum(dim=-1))
+    n_valid_lane_points = torch.min(map_feat['lanes_left_valid'].sum(dim=-1), map_feat['lanes_right_valid'].sum(dim=-1))
     for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
         plot_lanes(ax, map_feat['lanes_left'][i_elem][:n_valid_pnts], map_feat['lanes_right'][i_elem][:n_valid_pnts],
                    i_elem, facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
