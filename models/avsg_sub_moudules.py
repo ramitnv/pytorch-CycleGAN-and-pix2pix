@@ -100,8 +100,6 @@ class PointNet(nn.Module):
             h = h.max(dim=0)
         elif self.point_net_aggregate_func == 'sum':
             h = h.sum(dim=0)
-        elif self.point_net_aggregate_func == 'log_softmax':
-            h = h.log_softmax(dim=0)
         else:
             raise NotImplementedError
         h = self.out_layer(h)
