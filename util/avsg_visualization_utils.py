@@ -99,7 +99,7 @@ def visualize_scene_feat(agents_feat, map_feat):
     n_valid_cw_points = map_feat['crosswalks_valid'].sum(dim=-1)
 
     for i_elem, n_valid_pnts in enumerate(n_valid_cw_points):
-        plot_poly_elem(ax, map_feat['crosswalks'][:n_valid_pnts], i_elem,
+        plot_poly_elem(ax, map_feat['crosswalks'][i_elem][:n_valid_pnts], i_elem,
                        facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks', is_closed=True)
 
     n_agents = len(agents_feat)
