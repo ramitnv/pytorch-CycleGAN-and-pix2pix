@@ -131,8 +131,8 @@ class AvsgModel(BaseModel):
 
             # ~~~~ Display settings
             parser.set_defaults(
-                print_freq=1,
-                display_freq=1)
+                print_freq=5,
+                display_freq=10)
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
             parser.add_argument('--vis_n_generator_runs', type=int, default=3, help='')
             parser.add_argument('--G_variability_n_runs', type=int, default=5, help='')
