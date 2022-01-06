@@ -149,7 +149,7 @@ class AvsgModel(BaseModel):
         - (required) call the initialization function of BaseModel
         - define loss function, visualization images, model names, and optimizers
         """
-        BaseModel.__init__(self, opt, is_image_data=False)  # call the initialization method of BaseModel
+        BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
         opt.device = self.device
         self.use_wandb = opt.use_wandb
         self.polygon_name_order = opt.polygon_name_order

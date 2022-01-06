@@ -20,7 +20,7 @@ from options.train_options import TrainOptions
 from util.visualizer import Visualizer
 
 if __name__ == '__main__':
-    opt = TrainOptions(is_image_data=False).parse()  # get training options
+    opt = TrainOptions().parse()  # get training options
     assert opt.model == 'avsg_check_discr'
 
     train_dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options

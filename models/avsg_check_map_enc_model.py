@@ -2,7 +2,7 @@ import torch
 
 from avsg_utils import pre_process_scene_data
 from models.base_model import BaseModel
-
+from avsg_map_encoder import MapEncoder
 
 class AvsgCheckMapEncModel(BaseModel):
 
@@ -86,11 +86,11 @@ class AvsgCheckMapEncModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        BaseModel.__init__(self, opt, is_image_data=False)
+        BaseModel.__init__(self, opt)
 
         opt.device = self.device
         self.polygon_name_order = opt.polygon_name_order
-        self.map_enc = avsg_networks.MapEncoder(opt)
+        self.map_enc = MapEncoder(opt)
         # out layer, in case of scalar regression:
         self.out_layer = torch.nn.Linear(in_features=opt.dim_latent_map, out_features=1, device=self.device)
 

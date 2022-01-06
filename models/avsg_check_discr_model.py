@@ -100,7 +100,7 @@ class AvsgCheckDiscrModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        BaseModel.__init__(self, opt, is_image_data=False)
+        BaseModel.__init__(self, opt)
         opt.device = self.device
         self.polygon_name_order = opt.polygon_name_order
         self.task_name = opt.task_name

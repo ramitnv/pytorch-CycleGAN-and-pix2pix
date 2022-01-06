@@ -17,7 +17,7 @@ class BaseModel(ABC):
         -- <modify_commandline_options>:    (optionally) add model-specific options and set default options.
     """
 
-    def __init__(self, opt, is_image_data=True):
+    def __init__(self, opt):
         """Initialize the BaseModel class.
 
         Parameters:
@@ -43,10 +43,6 @@ class BaseModel(ABC):
         self.optimizers = []
         self.lr = opt.lr
         self.metric = 0  # used for learning rate policy 'plateau'
-        if is_image_data:
-            if opt.preprocess != 'scale_width':  # with [scale_width], input images might have different sizes, which hurts the performance of cudnn.benchmark.
-                torch.backends.cudnn.benchmark = True
-            self.image_paths = []
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
