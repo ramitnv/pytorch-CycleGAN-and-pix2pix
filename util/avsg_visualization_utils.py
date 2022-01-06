@@ -30,24 +30,17 @@ def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='blac
 def plot_lanes(ax, left_lanes, right_lanes, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
     # assert len(left_lanes) == len(right_lanes)
     assert left_lanes.ndim == right_lanes.ndim == 2
-    n_elems = min(len(left_lanes), len(right_lanes))
-    first_plt = i_elem == 0
-    for i in range(n_elems):
-        x_left = make_tensor_1d(left_lanes[i][0])
-        y_left = make_tensor_1d(left_lanes[i][1])
-        x_right = make_tensor_1d(right_lanes[i][0])
-        y_right = make_tensor_1d(right_lanes[i][1])
-        x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
-        y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
-        if first_plt:
-            first_plt = False
-        else:
-            label = None
-        ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-
+    if i_elem > 0:
+        label = None
+    x_left = make_tensor_1d(left_lanes[:, 0])
+    y_left = make_tensor_1d(left_lanes[:, 1])
+    x_right = make_tensor_1d(right_lanes[:, 0])
+    y_right = make_tensor_1d(right_lanes[:, 1])
+    x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
+    y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
+    ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
 
 ##############################################################################################
-
 
 def plot_rectangles(ax, centroids, extents, yaws, label, facecolor, alpha=0.7, edgecolor='black'):
     n_elems = len(centroids)
