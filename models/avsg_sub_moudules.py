@@ -48,19 +48,18 @@ class PointNet(nn.Module):
         self.d_hid = d_hid
         self.point_net_aggregate_func = opt.point_net_aggregate_func
         self.layer_dims = [d_in] + (n_layers - 1) * [d_hid] + [d_out]
-        self.matA = {}
-        self.matB = {}
+        self.linearA = nn.ModuleList()
+        self.linearB = nn.ModuleList()
         for i_layer in range(n_layers - 1):
             # each layer the function that operates on each element in the set x is
             # f(x) = ReLu(A x + B * (sum over all non x elements) )
-            layer_dims = (self.layer_dims[i_layer + 1], self.layer_dims[i_layer])
-            self.matA[i_layer] = nn.Parameter(torch.zeros(layer_dims, device=self.device, requires_grad=True))
-            self.matB[i_layer] = nn.Parameter(torch.zeros(layer_dims, device=self.device, requires_grad=True))
-            self.register_parameter(name=f'matA_{i_layer}', param=self.matA[i_layer])
-            self.register_parameter(name=f'matB_{i_layer}', param=self.matB[i_layer])
-            # PyTorch's default initialization:
-            nn.init.kaiming_uniform_(self.matA[i_layer], a=math.sqrt(5))
-            nn.init.kaiming_uniform_(self.matB[i_layer], a=math.sqrt(5))
+            layer_dims = ()
+            self.linearA.append(nn.Linear(in_features=self.layer_dims[i_layer],
+                                          out_features=self.layer_dims[i_layer + 1],
+                                          device=self.device))
+            self.linearB.append(nn.Linear(in_features=self.layer_dims[i_layer],
+                                          out_features=self.layer_dims[i_layer + 1],
+                                          device=self.device))
         self.out_layer = nn.Linear(d_hid, d_out, device=self.device)
         if self.use_layer_norm:
             self.layer_normalizer = nn.LayerNorm(d_hid, device=self.device)
@@ -73,22 +72,21 @@ class PointNet(nn.Module):
             After that the elements are aggregated by max-pool
              and finally  a linear layer gives the output
 
-            input is a tensor of size [num_set_elements x elem_dim]
+            input is a tensor of size [batch_size x num_set_elements x elem_dim]
 
         """
-        if in_set.ndim == 1:
-            in_set = in_set.unsqueeze(0)
+
         h = in_set
-        n_elements = in_set.shape[0]
+        n_elements = in_set.shape[-2]
         for i_layer in range(self.n_layers - 1):
-            matA = self.matA[i_layer]
-            matB = self.matB[i_layer]
-            pre_layer_sum = h.sum(dim=0).squeeze()
+            linearA = self.linearA[i_layer]
+            linearB = self.linearB[i_layer]
+            pre_layer_sum = h.sum(dim=-2)
             h_new_lst = []
             for i_elem in range(n_elements):
-                h_elem = h[i_elem].squeeze()
+                h_elem = h[i_elem]
                 sum_without_elem = pre_layer_sum - h_elem
-                h_new = matA @ h_elem + matB @ sum_without_elem
+                h_new = linearA(h_elem) + linearB(sum_without_elem)
                 h_new_lst.append(h_new)
             h = torch.stack(h_new_lst)
             if self.use_layer_norm:
@@ -97,11 +95,10 @@ class PointNet(nn.Module):
         # apply permutation invariant aggregation over all elements
 
         if self.point_net_aggregate_func == 'max':
-            h = h.max(dim=0)
+            h = h.max(dim=-2)
         elif self.point_net_aggregate_func == 'sum':
-            h = h.sum(dim=0)
+            h = h.sum(dim=-2)
         else:
             raise NotImplementedError
         h = self.out_layer(h)
         return h
-

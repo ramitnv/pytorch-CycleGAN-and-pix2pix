@@ -40,8 +40,10 @@ class PolygonEncoder(nn.Module):
         input [1 x n_points  x 2 coordinates]
         """
         # fit to conv1d input dimensions [batch_size=1  x in_channels=2  x n_points]
+        n_squeezes = 0
         while poly_points.ndim < 3:
             poly_points = poly_points.unsqueeze(dim=0)
+            n_squeezes += 1
         h = torch.permute(poly_points, (0, 2, 1))
 
         if not self.is_closed:
@@ -62,6 +64,8 @@ class PolygonEncoder(nn.Module):
             h = F.relu(h)
         h = h.sum(dim=2)
         h = self.out_layer(h)
+        for i in range(n_squeezes):
+            h = h.squeeze()
         return h
 
 
@@ -123,6 +127,7 @@ class MapEncoder(nn.Module):
                     poly_latent_per_elem.append(poly_elem_latent)
                 # Run PointNet to aggregate all polygon elements of this  polygon type
                 poly_latent_per_elem = torch.stack(poly_latent_per_elem)
+                assert poly_latent_per_elem.ndim == 2
                 latent_poly_type = self.sets_aggregators[poly_type](poly_latent_per_elem)
             latents_per_poly_type.append(latent_poly_type)
         poly_types_latents = torch.cat(latents_per_poly_type)
