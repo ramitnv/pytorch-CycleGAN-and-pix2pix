@@ -59,7 +59,7 @@ class AvsgModel(BaseModel):
             # ~~~~  Training optimization settings
             parser.set_defaults(
                 n_epochs=100,
-                batch_size=32,
+                batch_size=64,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
                 lr_decay_iters=1000,  # if lr_policy==step'
@@ -104,7 +104,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
             parser.add_argument('--n_point_net_layers', type=int, default=3, help='PointNet layers number')
             parser.add_argument('--use_layer_norm', type=int, default=1, help='0 or 1')
-            parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max / log_softmax')
+            parser.add_argument('--point_net_aggregate_func', type=str, default='log_softmax', help='sum / max / log_softmax')
 
             # ~~~~ map encoder settings
             parser.add_argument('--dim_latent_polygon_elem', type=int, default=8, help='')
