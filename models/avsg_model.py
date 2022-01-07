@@ -223,7 +223,7 @@ class AvsgModel(BaseModel):
             out = any([isinstance(layer, typ) for typ in layers_types])
             return out
 
-        def get_spectral_norm(net):
+        def get_weighted_layers(net):
             stk = [net]
             L = []
             while stk:
@@ -235,8 +235,15 @@ class AvsgModel(BaseModel):
                         stk.append(layer)
             return L
 
-        L = get_spectral_norm(self.netD)
+        def get_spectral_norm(net):
+            L = get_weighted_layers(net)
+            spect_norm = 0
+            for name, layer in L:
+                snm = torch.nn.utils.parametrizations.spectral_norm(layer)
+                spect_norm += torch.linalg.matrix_norm(snm.weight, 2).sum()
+            return spect_norm
 
+        loss_spect_norm_D = get_spectral_norm(self.netD)
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real \
