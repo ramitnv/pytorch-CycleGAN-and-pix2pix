@@ -220,12 +220,19 @@ class AvsgModel(BaseModel):
 
         def is_weighted_layer(layer):
             layers_types = [torch.nn.Linear, torch.nn.Conv1d,  torch.nn.Conv2d]
-            return any([isinstance(layer, typ) for typ in layers_types])
+            out = any([isinstance(layer, typ) for typ in layers_types])
+            return out
 
         def get_spectral_norm(net):
-            for name, layer in net.named_children():
-                if is_weighted_layer(layer):
-                    L.append(name)
+            stk = [net]
+            L = []
+            while stk:
+                m = stk.pop()
+                for name, layer in m.named_children():
+                    if is_weighted_layer(layer):
+                        L.append((name, layer))
+                    else:
+                        stk.append(layer)
             return L
 
         L = get_spectral_norm(self.netD)
