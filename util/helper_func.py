@@ -184,7 +184,17 @@ def get_spectral_norm(net):
         spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
     return spect_norm
 
+#########################################################################################
+def get_net_weights_norm(net, norm_type='Frobenius'):
+    tot_norm = 0
+    for param in net.parameters():
+        if norm_type == 'Frobenius':
+            tot_norm += torch.norm(param, p='fro')
+        elif norm_type == 'L1':
+            tot_norm += torch.norm(param, p=1)
+        elif norm_type == 'Nuclear':
+            tot_norm += torch.norm(param, p='nuc')
+    return tot_norm
+
 ########################################################################################
-
-
 

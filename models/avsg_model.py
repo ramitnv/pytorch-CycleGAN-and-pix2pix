@@ -20,7 +20,7 @@ import torch
 from models.networks import cal_gradient_penalty
 from . import networks
 from .base_model import BaseModel
-from util.helper_func import get_spectral_norm
+from util.helper_func import get_net_weights_norm
 
 
 #########################################################################################
@@ -71,8 +71,11 @@ class AvsgModel(BaseModel):
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
             parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
             parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
-            parser.add_argument('--lambda_spect_norm_D', type=float, default=0., help=" ")
-            parser.add_argument('--lambda_spect_norm_G', type=float, default=1., help=" ")
+
+            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius", help="Frobenius / L1 / Nuclear")
+            parser.add_argument('--type_weights_norm_G', type=str, default="Frobenius", help=" ")
+            parser.add_argument('--lambda_weights_norm_D', type=float, default=1., help=" ")
+            parser.add_argument('--lambda_weights_norm_G', type=float, default=1., help=" ")
 
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
@@ -176,16 +179,18 @@ class AvsgModel(BaseModel):
                 self.criterion_reconstruct = torch.nn.MSELoss()
             else:
                 raise NotImplementedError
-            self.lambda_spect_norm_D = opt.lambda_spect_norm_D
+            self.gan_mode = opt.gan_mode
+            self.lambda_weights_norm_D = opt.lambda_weights_norm_D
+            self.lambda_weights_norm_G = opt.lambda_weights_norm_G
+            self.type_weights_norm_D = opt.type_weights_norm_D
+            self.type_weights_norm_G = opt.type_weights_norm_G
+            self.lambda_reconstruct = opt.lambda_reconstruct
+            self.lambda_gp = opt.lambda_gp
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
-            # Our program will automatically call <model.setup> to define schedulers, load networks, and print networks
-            self.gan_mode = opt.gan_mode
-            self.lambda_gp = opt.lambda_gp
-            self.lambda_spect_norm_D = opt.lambda_spect_norm_D
             ## Debug
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
@@ -214,21 +219,24 @@ class AvsgModel(BaseModel):
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
                                                    fake_agents_detached, self)
 
-        if self.lambda_spect_norm_D > 0:
-            loss_spect_norm_D = get_spectral_norm(self.netD)
+        if self.lambda_weights_norm_D > 0:
+            loss_D_weights_norm = get_net_weights_norm(self.netD, self.type_weights_norm_D)
         else:
-            loss_spect_norm_D = None
+            loss_D_weights_norm = None
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real
-        reg_losses = [(self.lambda_gp, loss_D_grad_penalty),  (self.lambda_spect_norm_D, loss_spect_norm_D)]
+        reg_losses = [(self.lambda_gp, loss_D_grad_penalty),
+                      (self.lambda_weights_norm_D, loss_D_weights_norm)]
         for (lamb, loss) in reg_losses:
             if loss is not None:
-                loss_D += loss
+                loss_D += lamb * loss
 
-        log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
-                       "loss_D_classify_real": loss_D_classify_real, "loss_D_grad_penalty": loss_D_grad_penalty,
-                       "loss_spect_norm_D": loss_spect_norm_D,
+        log_metrics = {"loss_D": loss_D,
+                       "loss_D_classify_fake": loss_D_classify_fake,
+                       "loss_D_classify_real": loss_D_classify_real,
+                       "loss_D_grad_penalty": loss_D_grad_penalty,
+                       "loss_D_weights_norm": loss_D_weights_norm,
                        "D_logit(real)": d_out_for_real, "D_logit(fake_detach)": d_out_for_fake}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_D, log_metrics
@@ -248,15 +256,25 @@ class AvsgModel(BaseModel):
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
         loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
 
+        if self.lambda_weights_norm_G > 0:
+            loss_G_weights_norm = get_net_weights_norm(self.netG, self.type_weights_norm_G)
+        else:
+            loss_G_weights_norm = None
+
         # combine losses
-        loss_G = loss_G_GAN + loss_G_reconstruct * self.opt.lambda_reconstruct
+        loss_G = loss_G_GAN
+        reg_losses = [(self.lambda_reconstruct, loss_G_reconstruct),
+                      (self.lambda_weights_norm_G, loss_G_weights_norm)]
+        for (lamb, loss) in reg_losses:
+            if loss is not None:
+                loss_G += lamb * loss
 
-        log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN, "loss_G_reconstruct": loss_G_reconstruct,
-                       "D_logit(fake)": d_out_for_fake}
-        log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
+        log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN,
+                       "loss_G_reconstruct": loss_G_reconstruct,
+                       "D_logit(fake)": d_out_for_fake,
+                       "loss_G_weights_norm": loss_G_weights_norm}
+        log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_G, log_metrics
-
-    #########################################################################################
 
     #########################################################################################
 
