@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.nn import init
 from torch.optim import lr_scheduler
 
+#########################################################################################
 
 def run_validation(model, eval_dataset, n_batches=0):
     is_training = model.isTrain
@@ -24,9 +25,13 @@ def run_validation(model, eval_dataset, n_batches=0):
         model.train()
     return loss_avg
 
+#########################################################################################
+
 class Identity(nn.Module):
     def forward(self, x):
         return x
+
+#########################################################################################
 
 def get_norm_layer(norm_type='instance'):
     """Return a normalization layer
@@ -47,6 +52,7 @@ def get_norm_layer(norm_type='instance'):
         raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
     return norm_layer
 
+#########################################################################################
 
 def get_scheduler(optimizer, opt):
     """Return a learning rate scheduler
@@ -78,6 +84,7 @@ def get_scheduler(optimizer, opt):
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
 
+#########################################################################################
 
 def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
@@ -112,6 +119,7 @@ def init_weights(net, init_type='normal', init_gain=0.02):
     print('initialize network with %s' % init_type)
     net.apply(init_func)  # apply the initialization function <init_func>
 
+#########################################################################################
 
 def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
@@ -129,3 +137,54 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
         net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
     init_weights(net, init_type, init_gain=init_gain)
     return net
+
+
+##########################################################################################
+#
+# def add_spectral_norm(m):
+#     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.Conv2d, nn.ConvTranspose2d)):
+#         return torch.nn.utils.parametrizations.spectral_norm(m)
+#     else:
+#         return m
+
+# #########################################################################################
+#
+# def is_weighted_layer(layer):
+#     layers_types = (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d)
+#     out = isinstance(layer, layers_types)
+#     return out
+
+#########################################################################################
+
+# def get_weighted_layers(net):
+#     stk = [net]
+#     L = []
+#     while stk:
+#         m = stk.pop()
+#         for name, layer in m.named_children():
+#             if is_weighted_layer(layer):
+#                 L.append((name, layer))
+#             else:
+#                 stk.append(layer)
+#     return L
+
+#########################################################################################
+def add_sn(m):
+    if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.ConvTranspose2d)):
+        return torch.nn.utils.parametrizations.spectral_norm(m)
+    else:
+        return m
+
+#########################################################################################
+def get_spectral_norm(net):
+
+    spect_norm_layers = net.apply(add_sn)
+    spect_norm = 0
+    for layer in spect_norm_layers:
+        spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
+    return spect_norm
+
+########################################################################################
+
+
+

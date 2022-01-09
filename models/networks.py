@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.helper_func import get_norm_layer, init_net
+from util.helper_func import get_norm_layer, init_net
 from .avsg_main_modules import SceneGenerator, SceneDiscriminator
 from .imgs_networks import ResnetGenerator, UnetGenerator, NLayerDiscriminator, PixelDiscriminator
 
@@ -200,7 +200,7 @@ def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='
     """
     device = model.device
     if model.gan_mode != 'wgangp':
-        return 0
+        return None
     if type == 'real':   # either use real images, fake images, or a linear interpolation of two.
         interpolatesv = real_samp
     elif type == 'fake':

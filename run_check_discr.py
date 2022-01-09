@@ -15,7 +15,7 @@ import time
 import wandb
 from data import create_dataset
 from models import create_model
-from models.helper_func import run_validation
+from util.helper_func import run_validation
 from options.train_options import TrainOptions
 from util.visualizer import Visualizer
 

@@ -20,6 +20,7 @@ import torch
 from models.networks import cal_gradient_penalty
 from . import networks
 from .base_model import BaseModel
+from util.helper_func import get_spectral_norm
 
 
 #########################################################################################
@@ -65,12 +66,12 @@ class AvsgModel(BaseModel):
                 lr_decay_factor=0.9,  # if lr_policy==step'
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
                 save_epoch_freq=1e6,  # frequency of saving checkpoints at the end of epochs'
-                save_latest_freq=1e6,  #  requency of saving the latest results
+                save_latest_freq=1e6,  # requency of saving the latest results
             )
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
             parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
             parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
-            parser.add_argument('--lambda_spect_norm_D', type=float, default=1., help=" ")
+            parser.add_argument('--lambda_spect_norm_D', type=float, default=0., help=" ")
             parser.add_argument('--lambda_spect_norm_G', type=float, default=1., help=" ")
 
         # ~~~~  Map features
@@ -167,8 +168,6 @@ class AvsgModel(BaseModel):
         self.netG = networks.define_G(opt, self.gpu_ids)
         if self.isTrain:
             self.netD = networks.define_D(opt, self.gpu_ids)
-
-        if self.isTrain:
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             if opt.reconstruct_loss_type == 'L1':
@@ -177,6 +176,7 @@ class AvsgModel(BaseModel):
                 self.criterion_reconstruct = torch.nn.MSELoss()
             else:
                 raise NotImplementedError
+            self.lambda_spect_norm_D = opt.lambda_spect_norm_D
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -214,46 +214,23 @@ class AvsgModel(BaseModel):
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
                                                    fake_agents_detached, self)
 
-        # snm = torch.nn.utils.parametrizations.spectral_norm(self.netD)
-        # loss_spect_norm_D = torch.linalg.matrix_norm(snm.weight, 2)
-        loss_spect_norm_D = 0
-
-        def is_weighted_layer(layer):
-            layers_types = [torch.nn.Linear, torch.nn.Conv1d,  torch.nn.Conv2d]
-            out = any([isinstance(layer, typ) for typ in layers_types])
-            return out
-
-        def get_weighted_layers(net):
-            stk = [net]
-            L = []
-            while stk:
-                m = stk.pop()
-                for name, layer in m.named_children():
-                    if is_weighted_layer(layer):
-                        L.append((name, layer))
-                    else:
-                        stk.append(layer)
-            return L
-
-        def get_spectral_norm(net):
-            L = get_weighted_layers(net)
-            spect_norm = 0
-            for name, layer in L:
-                snm = torch.nn.utils.parametrizations.spectral_norm(layer)
-                spect_norm += torch.linalg.matrix_norm(snm.weight, 2).sum()
-            return spect_norm
-
-        loss_spect_norm_D = get_spectral_norm(self.netD)
+        if self.lambda_spect_norm_D > 0:
+            loss_spect_norm_D = get_spectral_norm(self.netD)
+        else:
+            loss_spect_norm_D = None
 
         # combine losses
-        loss_D = loss_D_classify_fake + loss_D_classify_real \
-                 + self.lambda_gp * loss_D_grad_penalty \
-                 + self.lambda_spect_norm_D * loss_spect_norm_D
+        loss_D = loss_D_classify_fake + loss_D_classify_real
+        reg_losses = [(self.lambda_gp, loss_D_grad_penalty),  (self.lambda_spect_norm_D, loss_spect_norm_D)]
+        for (lamb, loss) in reg_losses:
+            if loss is not None:
+                loss_D += loss
 
         log_metrics = {"loss_D": loss_D, "loss_D_classify_fake": loss_D_classify_fake,
                        "loss_D_classify_real": loss_D_classify_real, "loss_D_grad_penalty": loss_D_grad_penalty,
+                       "loss_spect_norm_D": loss_spect_norm_D,
                        "D_logit(real)": d_out_for_real, "D_logit(fake_detach)": d_out_for_fake}
-        log_metrics = {name: val.mean().item() for name, val in log_metrics.items()}
+        log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_D, log_metrics
 
     #########################################################################################

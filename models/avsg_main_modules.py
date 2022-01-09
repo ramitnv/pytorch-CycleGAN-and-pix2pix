@@ -5,7 +5,6 @@ import torch.nn.functional as nnf
 from models.avsg_agents_decoder import get_agents_decoder
 from models.avsg_map_encoder import MapEncoder
 from models.avsg_sub_moudules import MLP, PointNet
-
 ##############################################################################################
 
 class SceneGenerator(nn.Module):
