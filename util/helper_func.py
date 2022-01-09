@@ -185,7 +185,9 @@ def get_spectral_norm(net):
     return spect_norm
 
 #########################################################################################
-def get_net_weights_norm(net, norm_type='Frobenius'):
+def get_net_weights_norm(net, norm_type='None'):
+    if norm_type == 'None':
+        return None
     tot_norm = 0
     for param in net.parameters():
         if norm_type == 'Frobenius':

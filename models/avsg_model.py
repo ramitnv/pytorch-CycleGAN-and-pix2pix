@@ -72,8 +72,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
             parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
 
-            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius", help="Frobenius / L1 / Nuclear")
-            parser.add_argument('--type_weights_norm_G', type=str, default="Frobenius", help=" ")
+            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius", help=" None / Frobenius / L1 / Nuclear")
+            parser.add_argument('--type_weights_norm_G', type=str, default="None", help=" None / Frobenius / L1 / Nuclear")
             parser.add_argument('--lambda_weights_norm_D', type=float, default=1., help=" ")
             parser.add_argument('--lambda_weights_norm_G', type=float, default=1., help=" ")
 
