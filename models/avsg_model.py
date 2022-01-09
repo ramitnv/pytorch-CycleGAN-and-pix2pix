@@ -40,7 +40,7 @@ class AvsgModel(BaseModel):
         """
 
         # ~~~~  Data
-        parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
+        parser.add_argument('--data_path_val', type=str, default='', help='Path for evaluation dataset file')
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                             help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
 
@@ -66,7 +66,7 @@ class AvsgModel(BaseModel):
                 lr_decay_factor=0.9,  # if lr_policy==step'
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
                 save_epoch_freq=1e6,  # frequency of saving checkpoints at the end of epochs'
-                save_latest_freq=1e6,  # requency of saving the latest results
+                save_latest_freq=1e6,  # frequency of saving the latest results
             )
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
             parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
@@ -281,6 +281,36 @@ class AvsgModel(BaseModel):
     def optimize_parameters(self, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
+        # update D
+        self.set_requires_grad(self.netD, True)  # enable backprop for D
+        self.set_requires_grad(self.netG, False)  # disable backprop for G
+        self.optimizer_D.zero_grad()  # set D's gradients to zero
+        loss_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
+        loss_D.backward()  # calculate gradients for D
+        self.optimizer_D.step()  # update D's weights
+
+        # update G
+        self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
+        self.set_requires_grad(self.netG, True)  # enable backprop for G
+        self.optimizer_G.zero_grad()  # set G's gradients to zero
+        loss_G, log_metrics_G = self.get_G_losses(conditioning, real_actors)
+        loss_G.backward()  # calculate gradients for G
+        # calculate gradients for G
+        self.optimizer_G.step()  # update G's weights
+
+        # Save for logging:
+        self.train_log_metrics_G = log_metrics_G
+        self.train_log_metrics_D = log_metrics_D
+
+    #########################################################################################
+
+   def optimize_discriminator(self):
+        """Update network weights; it will be called in every training iteration."""
+        
+        scenes_batch = next(val_data_gen)
+        # unpack data from dataset and apply preprocessing:
+        real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
+        
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G

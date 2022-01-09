@@ -11,11 +11,11 @@ You need to implement the following functions:
     -- <__getitem__>: Return a data point and its metadata information.
     -- <__len__>: Return the number of images.
 """
+import itertools
 import pickle
-
 import numpy as np
 import torch
-
+from data import create_dataset
 from data.base_dataset import BaseDataset
 
 
@@ -169,3 +169,13 @@ class AvsgDataset(BaseDataset):
     def __len__(self):
         """Return the total number of scenes."""
         return len(self.dataset['map_feat'])
+
+#########################################################################################
+
+def get_cyclic_data_generator(opt, data_root):
+    dataset = create_dataset(opt, data_root)  # create a dataset given opt.dataset_mode and other options
+    print(f'Loaded data from {data_root}, dataset size = {len(dataset)} samples')
+    data_gen = itertools.cycle(dataset)
+    return data_gen
+
+#########################################################################################

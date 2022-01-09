@@ -38,7 +38,6 @@ class Visualizer:
         self.use_html = opt.isTrain and not opt.no_html
         self.win_size = opt.display_winsize
         self.name = opt.name
-        self.saved = False
         self.use_wandb = opt.use_wandb
         self.current_fig_index = 0
         self.plotted_inds = []
@@ -59,10 +58,6 @@ class Visualizer:
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
     # ==========================================================================
-
-    def reset(self):
-        """Reset the self.saved status"""
-        self.saved = False
 
     # ==========================================================================
 
@@ -127,7 +122,7 @@ class Visualizer:
 
     # ==========================================================================
 
-    def display_current_results(self, model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch,
+    def display_current_results(self, model, train_real_actors, train_conditioning, val_data_gen, opt, i_epoch,
                                 i_batch, tot_iters, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
@@ -138,12 +133,11 @@ class Visualizer:
         """
         fig_index = tot_iters
         self.plotted_inds.append(fig_index)
-        visuals_dict, wandb_logs = get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt,
+        visuals_dict, wandb_logs = get_images(model, train_real_actors, train_conditioning, val_data_gen, opt,
                                               i_epoch, i_batch, tot_iters)
 
         # save images to an HTML file if they haven't been saved.
-        if self.use_html and not self.saved:
-            self.saved = True
+        if self.use_html:
             # save images to the disk
             for label, image in visuals_dict.items():
                 image_numpy = util.tensor2im(image)
@@ -172,12 +166,12 @@ class Visualizer:
     # ==========================================================================
 
 
-def get_images(model, train_real_actors, train_conditioning, validation_data_gen, opt, i_epoch, i_batch, tot_iters):
+def get_images(model, train_real_actors, train_conditioning, val_data_gen, opt, i_epoch, i_batch, tot_iters):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
-    validation_batch = next(validation_data_gen)
+    validation_batch = next(val_data_gen)
     val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
