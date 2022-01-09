@@ -74,8 +74,8 @@ class AvsgModel(BaseModel):
 
             parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius", help=" None / Frobenius / L1 / Nuclear")
             parser.add_argument('--type_weights_norm_G', type=str, default="None", help=" None / Frobenius / L1 / Nuclear")
-            parser.add_argument('--lambda_weights_norm_D', type=float, default=1., help=" ")
-            parser.add_argument('--lambda_weights_norm_G', type=float, default=1., help=" ")
+            parser.add_argument('--lambda_weights_norm_D', type=float, default=1e-4, help=" ")
+            parser.add_argument('--lambda_weights_norm_G', type=float, default=1e-4, help=" ")
 
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
