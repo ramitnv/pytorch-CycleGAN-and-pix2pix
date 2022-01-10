@@ -129,7 +129,7 @@ class Visualizer:
             epoch (int) - - the current epoch
             save_result (bool) - - if save the current results to an HTML file
         """
-        fig_index = tot_iters
+        fig_index = i
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
 
@@ -138,7 +138,7 @@ class Visualizer:
             # save images to the disk
             for label, image in visuals_dict.items():
                 image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'e{i_epoch + 1}_i{i_batch + 1}_{label}.{file_type}')
+                img_path = os.path.join(self.img_dir, f'i{i + 1}_{label}.{file_type}')
                 util.save_image(image_numpy, img_path)
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
@@ -158,7 +158,7 @@ class Visualizer:
                 for log_label, log_data in wandb_logs.items():
                     self.wandb_run.log({log_label: log_data})
 
-        print(f'Figure saved. epoch #{i_epoch+1}, epoch_iter #{i_batch+1}, total_iter #{tot_iters + 1}')
+        print(f'Figure saved for iteration #{i+1}')
 
     # ==========================================================================
 
@@ -195,7 +195,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
                 fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label=f'fake_{1+i_generator_run}')
-                visuals_dict[f'{dataset_name}_iter_{i + 1}__map_{i_map + 1}_fake__{i_generator_run + 1}'] = img
+                visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:
