@@ -11,11 +11,11 @@ You need to implement the following functions:
     -- <__getitem__>: Return a data point and its metadata information.
     -- <__len__>: Return the number of images.
 """
+import itertools
 import pickle
-
 import numpy as np
 import torch
-
+from data import create_dataset
 from data.base_dataset import BaseDataset
 
 
@@ -124,7 +124,7 @@ class AvsgDataset(BaseDataset):
         parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, data_path):
         """Initialize this dataset class.
 
         Parameters:
@@ -137,9 +137,9 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
-        with open(opt.dataroot, 'rb') as fid:
+        with open(data_path, 'rb') as fid:
             self.dataset = pickle.loads(fid.read())
-            print('Loaded dataset file ', opt.dataroot)
+            print('Loaded dataset file ', data_path)
 
         # get the image paths of your dataset;
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
@@ -169,3 +169,13 @@ class AvsgDataset(BaseDataset):
     def __len__(self):
         """Return the total number of scenes."""
         return len(self.dataset['map_feat'])
+
+#########################################################################################
+
+def get_cyclic_data_generator(opt, data_root):
+    dataset = create_dataset(opt, data_root)  # create a dataset given opt.dataset_mode and other options
+    print(f'Loaded data from {data_root}, dataset size = {len(dataset)} samples')
+    data_gen = itertools.cycle(dataset)
+    return data_gen
+
+#########################################################################################

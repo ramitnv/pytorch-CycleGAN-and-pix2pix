@@ -40,7 +40,7 @@ class AvsgModel(BaseModel):
         """
 
         # ~~~~  Data
-        parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
+        parser.add_argument('--data_path_val', type=str, default='', help='Path for validation dataset file')
         parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                             help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
 
@@ -58,22 +58,23 @@ class AvsgModel(BaseModel):
         if is_train:
             # ~~~~  Training optimization settings
             parser.set_defaults(
-                n_epochs=100,
+                n_iter=10000,
                 batch_size=64,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
                 lr_decay_iters=1000,  # if lr_policy==step'
                 lr_decay_factor=0.9,  # if lr_policy==step'
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
-                save_epoch_freq=1e6,  # frequency of saving checkpoints at the end of epochs'
-                save_latest_freq=1e6,  # requency of saving the latest results
+                save_latest_freq=1e6,  # frequency of saving the latest results
             )
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
             parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
             parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
 
-            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius", help=" None / Frobenius / L1 / Nuclear")
-            parser.add_argument('--type_weights_norm_G', type=str, default="None", help=" None / Frobenius / L1 / Nuclear")
+            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius",
+                                help=" None / Frobenius / L1 / Nuclear")
+            parser.add_argument('--type_weights_norm_G', type=str, default="None",
+                                help=" None / Frobenius / L1 / Nuclear")
             parser.add_argument('--lambda_weights_norm_D', type=float, default=1e-4, help=" ")
             parser.add_argument('--lambda_weights_norm_G', type=float, default=1e-4, help=" ")
 
@@ -180,24 +181,19 @@ class AvsgModel(BaseModel):
             else:
                 raise NotImplementedError
             self.gan_mode = opt.gan_mode
-            self.lambda_weights_norm_D = opt.lambda_weights_norm_D
-            self.lambda_weights_norm_G = opt.lambda_weights_norm_G
-            self.type_weights_norm_D = opt.type_weights_norm_D
-            self.type_weights_norm_G = opt.type_weights_norm_G
-            self.lambda_reconstruct = opt.lambda_reconstruct
-            self.lambda_gp = opt.lambda_gp
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
-            ## Debug
+
+            ##  Debug
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
         #########################################################################################
 
-    def get_D_losses(self, conditioning, real_actors):
+    def get_D_losses(self, opt, real_actors, conditioning):
         """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
@@ -219,15 +215,12 @@ class AvsgModel(BaseModel):
         loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
                                                    fake_agents_detached, self)
 
-        if self.lambda_weights_norm_D > 0:
-            loss_D_weights_norm = get_net_weights_norm(self.netD, self.type_weights_norm_D)
-        else:
-            loss_D_weights_norm = None
+        loss_D_weights_norm = get_net_weights_norm(self.netD, opt.type_weights_norm_D)
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real
-        reg_losses = [(self.lambda_gp, loss_D_grad_penalty),
-                      (self.lambda_weights_norm_D, loss_D_weights_norm)]
+        reg_losses = [(opt.lambda_gp, loss_D_grad_penalty),
+                      (opt.lambda_weights_norm_D, loss_D_weights_norm)]
         for (lamb, loss) in reg_losses:
             if loss is not None:
                 loss_D += lamb * loss
@@ -243,7 +236,7 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def get_G_losses(self, conditioning, real_actors):
+    def get_G_losses(self, opt, real_actors, conditioning):
         """Calculate loss terms for the generator"""
 
         fake_actors = self.netG(conditioning)
@@ -256,15 +249,12 @@ class AvsgModel(BaseModel):
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
         loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
 
-        if self.lambda_weights_norm_G > 0:
-            loss_G_weights_norm = get_net_weights_norm(self.netG, self.type_weights_norm_G)
-        else:
-            loss_G_weights_norm = None
+        loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
         # combine losses
         loss_G = loss_G_GAN
-        reg_losses = [(self.lambda_reconstruct, loss_G_reconstruct),
-                      (self.lambda_weights_norm_G, loss_G_weights_norm)]
+        reg_losses = [(opt.lambda_reconstruct, loss_G_reconstruct),
+                      (opt.lambda_weights_norm_G, loss_G_weights_norm)]
         for (lamb, loss) in reg_losses:
             if loss is not None:
                 loss_G += lamb * loss
@@ -278,28 +268,32 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_parameters(self, real_actors, conditioning):
+    def optimize_discriminator(self, opt, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, log_metrics_D = self.get_D_losses(conditioning, real_actors)
+        loss_D, log_metrics_D = self.get_D_losses(opt, real_actors, conditioning)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
+        # Save for logging:
+        self.train_log_metrics_D = log_metrics_D
+
+    #########################################################################################
+
+    def optimize_generator(self, opt, real_actors, conditioning):
+        """Update network weights; it will be called in every training iteration."""
 
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        loss_G, log_metrics_G = self.get_G_losses(conditioning, real_actors)
+        loss_G, log_metrics_G = self.get_G_losses(opt, real_actors, conditioning)
         loss_G.backward()  # calculate gradients for G
-        # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
-
         # Save for logging:
         self.train_log_metrics_G = log_metrics_G
-        self.train_log_metrics_D = log_metrics_D
 
     #########################################################################################

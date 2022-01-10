@@ -11,7 +11,7 @@ class AvsgCheckDiscrModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         """Add new dataset-specific options, and rewrite default values for existing options.
         """
-        parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
+        parser.add_argument('--data_root_val', type=str, default='', help='Path for evaluation dataset file')
         parser.add_argument('--task_name', type=str, default='predict_feat_sum', help='')
 
 

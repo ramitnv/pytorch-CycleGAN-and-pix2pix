@@ -2,8 +2,8 @@
 
 Run using:
  $ python -m run_check_map_enc
- --dataset_mode avsg  --model avsg_check_map_enc --dataroot datasets/avsg_data/l5kit_train.pkl --data_eval datasets/avsg_data/l5kit_sample.pkl
-* To change dataset files change --dataroot and --data_eval
+ --dataset_mode avsg  --model avsg_check_map_enc --data_path_train datasets/avsg_data/l5kit_train.pkl --data_path_val datasets/avsg_data/l5kit_sample.pkl
+* To change dataset files change --data_path_train and --data_path_val
 * To run only on CPU add: --gpu_ids -1
 * To limit the datasets size --max_dataset_size 1000
 * Name the experiment with --name
@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     opt = TrainOptions().parse()  # get training options
     assert opt.model == 'avsg_check_map_enc'
-    assert os.path.isfile(opt.data_eval)
+    assert os.path.isfile(opt.data_path_val)
     train_dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     dataset_size = len(train_dataset)  # get the number of images in the dataset.
     print('The number of training samples = %d' % dataset_size)
@@ -61,8 +61,7 @@ if __name__ == '__main__':
     ##########
     del train_dataset
     model.eval()
-    opt.dataroot = opt.data_eval
-    eval_dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+    eval_dataset = create_dataset(opt, data_root=opt.data_path_val)  # create a dataset given opt.dataset_mode and other options
     dataset_size = len(eval_dataset)  # get the number of images in the dataset.
     print('The number of test samples = %d' % dataset_size)
     n_loss_calc = 0

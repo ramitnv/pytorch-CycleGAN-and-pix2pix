@@ -10,7 +10,7 @@ class AvsgCheckMapEncModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         """Add new dataset-specific options, and rewrite default values for existing options.
         """
-        parser.add_argument('--data_eval', type=str, default='', help='Path for evaluation dataset file')
+        parser.add_argument('--data_path_val', type=str, default='', help='Path for evaluation dataset file')
 
         # ~~~~  Map features
         parser.add_argument('--polygon_name_order', type=list,
