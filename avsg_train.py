@@ -49,14 +49,17 @@ if __name__ == '__main__':
     start_time = time.time()
     for i in range(opt.n_iter):
         iter_start_time = time.time()  # timer for entire epoch
-
-        # unpack data from dataset and apply preprocessing:
-        scenes_batch = next(train_data_gen)
-        real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
-
         model.train()
-        model.optimize_discriminator(opt, real_actors, conditioning)
-        model.optimize_generator(opt, real_actors, conditioning)
+
+        for i_step in range(opt.n_steps_D):
+            scenes_batch = next(train_data_gen)
+            real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
+            model.optimize_discriminator(opt, real_actors, conditioning)
+
+        for i_step in range(opt.n_steps_G):
+            scenes_batch = next(train_data_gen)
+            real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
+            model.optimize_generator(opt, real_actors, conditioning)
 
         # update learning rates (must be after first model update step):
         model.update_learning_rate()

@@ -3,15 +3,10 @@ import torch.nn as nn
 
 from util.helper_func import get_norm_layer, init_net
 from .avsg_main_modules import SceneGenerator, SceneDiscriminator
-from .imgs_networks import ResnetGenerator, UnetGenerator, NLayerDiscriminator, PixelDiscriminator
-
 
 ###############################################################################
 # Helper Functions
 ###############################################################################
-
-
-
 
 def define_G(opt, gpu_ids=None):
     """Create a generator
@@ -43,26 +38,15 @@ def define_G(opt, gpu_ids=None):
 
     if gpu_ids is None:
         gpu_ids = []
-    use_dropout = not opt.no_dropout
-    net = None
-    norm_layer = get_norm_layer(norm_type=opt.norm)
 
-    if opt.netG == 'resnet_9blocks':
-        net = ResnetGenerator(opt.input_nc, opt.output_nc, opt.ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
-    elif opt.netG == 'resnet_6blocks':
-        net = ResnetGenerator(opt.input_nc, opt.output_nc, opt.ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
-    elif opt.netG == 'unet_128':
-        net = UnetGenerator(opt.input_nc, opt.output_nc, 7, opt.ngf, norm_layer=norm_layer, use_dropout=use_dropout)
-    elif opt.netG == 'unet_256':
-        net = UnetGenerator(opt.input_nc, opt.output_nc, 8, opt.ngf, norm_layer=norm_layer, use_dropout=use_dropout)
-    elif opt.netG == 'SceneGenerator':
+    if opt.netG == 'SceneGenerator':
         net = SceneGenerator(opt)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % opt.netG)
     return init_net(net, opt.init_type, opt.init_gain, gpu_ids)
 
 
-def define_D(opt, discriminator_in_nc=1,  gpu_ids=None):
+def define_D(opt,  gpu_ids=None):
     """Create a discriminator
 
     Parameters:
@@ -94,16 +78,8 @@ def define_D(opt, discriminator_in_nc=1,  gpu_ids=None):
     """
     if gpu_ids is None:
         gpu_ids = []
-    net = None
-    norm_layer = get_norm_layer(norm_type=opt.norm)
 
-    if opt.netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(discriminator_in_nc, opt.ndf, n_layers=3, norm_layer=norm_layer)
-    elif opt.netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(discriminator_in_nc, opt.ndf, opt.n_layers_D, norm_layer=norm_layer)
-    elif opt.netD == 'pixel':     # classify if each pixel is real or fake
-        net = PixelDiscriminator(discriminator_in_nc, opt.ndf, norm_layer=norm_layer)
-    elif opt.netD == 'SceneDiscriminator':
+    if opt.netD == 'SceneDiscriminator':
         net = SceneDiscriminator(opt)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % opt.netD)
