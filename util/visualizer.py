@@ -82,7 +82,7 @@ class Visualizer:
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {'Iteration': i,  'LR': model.lr,
+        run_metrics = {'Iteration': i+1,  'LR': model.lr,
                        'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
