@@ -65,7 +65,6 @@ class AvsgModel(BaseModel):
                 lr_decay_iters=1000,  # if lr_policy==step'
                 lr_decay_factor=0.9,  # if lr_policy==step'
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
-                save_epoch_freq=1e6,  # frequency of saving checkpoints at the end of epochs'
                 save_latest_freq=1e6,  # frequency of saving the latest results
             )
             parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")

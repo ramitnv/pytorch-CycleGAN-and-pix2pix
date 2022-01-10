@@ -124,7 +124,7 @@ class AvsgDataset(BaseDataset):
         parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, data_path):
         """Initialize this dataset class.
 
         Parameters:
@@ -137,9 +137,9 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
-        with open(opt.dataroot, 'rb') as fid:
+        with open(data_path, 'rb') as fid:
             self.dataset = pickle.loads(fid.read())
-            print('Loaded dataset file ', opt.dataroot)
+            print('Loaded dataset file ', data_path)
 
         # get the image paths of your dataset;
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
