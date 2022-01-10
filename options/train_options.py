@@ -20,7 +20,11 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
         # training parameters
-        parser.add_argument('--n_iter', type=int, default=1000, help='number of epochs with the initial learning rate')
+        parser.add_argument('--n_iter', type=int, default=1000, help='number of total iterations')
+        parser.add_argument('--n_steps_G', type=int, default=5, help='number of generator update steps per iteration')
+        parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
+
+
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
         parser.add_argument('--gan_mode', type=str, default='lsgan', help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
