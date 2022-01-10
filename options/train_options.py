@@ -20,14 +20,14 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
         # training parameters
-        parser.add_argument('--n_iter', type=int, default=500000, help='number of total iterations')
-        parser.add_argument('--n_steps_G', type=int, default=5, help='number of generator update steps per iteration')
+        parser.add_argument('--n_iter', type=int, default=5000, help='number of total iterations')
+        parser.add_argument('--n_steps_G', type=int, default=3, help='number of generator update steps per iteration')
         parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
 
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         parser.add_argument('--lr_G', type=float, default=0.0001, help='initial learning rate for ADAM optimizer of G')
         parser.add_argument('--lr_D', type=float, default=0.0004, help='initial learning rate for ADAM optimizer of D')
-        parser.add_argument('--gan_mode', type=str, default='wgangp', help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
+        parser.add_argument('--gan_mode', type=str, default='vanilla', help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
         parser.add_argument('--lr_policy', type=str, default='constant', help='learning rate policy. [linear | step | plateau | cosine | constant]')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations if lr_policy==step' )
         parser.add_argument('--lr_decay_factor', type=float, default=0.1, help='multiply by this every lr_decay_iters iterations if lr_policy==step')
