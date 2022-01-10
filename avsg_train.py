@@ -59,7 +59,7 @@ if __name__ == '__main__':
         model.optimize_generator(opt, real_actors, conditioning)
 
         # update learning rates (must be after first model update step):
-        model.update_learning_rates()
+        model.update_learning_rate()
 
         # print training losses and save logging information to the log file and wandb charts:
         if i % opt.print_freq == 0:
@@ -74,5 +74,5 @@ if __name__ == '__main__':
             save_suffix = f'iter_{i+1}' if opt.save_by_iter else 'latest'
             model.save_networks(save_suffix)
 
-        print(f'End of iteration {i+1}/{opt.n_iters}'
+        print(f'End of iteration {i+1}/{opt.n_iter}'
               f', iter run time {(time.time() - iter_start_time):.2f} sec')
