@@ -61,8 +61,7 @@ class Visualizer:
 
     # ==========================================================================
 
-    def print_current_metrics(self, model, opt, train_conditioning, validation_data_gen, i_epoch, i_batch, tot_iters,
-                              run_start_time):
+    def print_current_metrics(self, model, i, opt, train_conditioning, val_data_gen, run_start_time):
         """  print training losses and save logging information to the log file and wandblog charts
 
 
@@ -76,14 +75,14 @@ class Visualizer:
         train_metrics_G = model.train_log_metrics_G
         train_metrics_D = model.train_log_metrics_D
 
-        validation_batch = next(validation_data_gen)
-        val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
+        val_batch = next(val_data_gen)
+        val_real_actors, val_conditioning = pre_process_scene_data(val_batch, opt)
         _, val_metrics_G = model.get_G_losses(val_conditioning, val_real_actors)
         _, val_metrics_D = model.get_D_losses(val_conditioning, val_real_actors)
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {'i_epoch': i_epoch, 'i_batch': i_batch, 'tot_iters': tot_iters, 'LR': model.lr,
+        run_metrics = {'Iteration': i,  'LR': model.lr,
                        'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
@@ -122,8 +121,7 @@ class Visualizer:
 
     # ==========================================================================
 
-    def display_current_results(self, model, train_real_actors, train_conditioning, val_data_gen, opt, i_epoch,
-                                i_batch, tot_iters, file_type='jpg'):
+    def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen, file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
@@ -133,8 +131,7 @@ class Visualizer:
         """
         fig_index = tot_iters
         self.plotted_inds.append(fig_index)
-        visuals_dict, wandb_logs = get_images(model, train_real_actors, train_conditioning, val_data_gen, opt,
-                                              i_epoch, i_batch, tot_iters)
+        visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
 
         # save images to an HTML file if they haven't been saved.
         if self.use_html:
@@ -166,7 +163,7 @@ class Visualizer:
     # ==========================================================================
 
 
-def get_images(model, train_real_actors, train_conditioning, val_data_gen, opt, i_epoch, i_batch, tot_iters):
+def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen):
     """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
@@ -188,9 +185,9 @@ def get_images(model, train_real_actors, train_conditioning, val_data_gen, opt, 
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
-            log_label = f"{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}"
+            log_label = f"{dataset_name}_iter_{i + 1}_map_{i_map + 1}"
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real')
-            visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}_map_{i_map + 1}_real_agents'] = img
+            visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
 
@@ -198,7 +195,7 @@ def get_images(model, train_real_actors, train_conditioning, val_data_gen, opt, 
                 fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label=f'fake_{1+i_generator_run}')
-                visuals_dict[f'{dataset_name}_iter_{tot_iters + 1}__map_{i_map + 1}_fake__{i_generator_run + 1}'] = img
+                visuals_dict[f'{dataset_name}_iter_{i + 1}__map_{i_map + 1}_fake__{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:

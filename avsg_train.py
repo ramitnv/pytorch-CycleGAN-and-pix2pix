@@ -33,6 +33,7 @@ from data.avsg_dataset import get_cyclic_data_generator
 from models import create_model
 from options.train_options import TrainOptions
 from util.visualizer import Visualizer
+from avsg_utils import pre_process_scene_data
 
 if __name__ == '__main__':
     run_start_time = time.time()
@@ -44,9 +45,14 @@ if __name__ == '__main__':
     opt.device = model.device
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
+
     start_time = time.time()
     for i in range(opt.n_iters):
         iter_start_time = time.time()  # timer for entire epoch
+
+        # unpack data from dataset and apply preprocessing:
+        scenes_batch = next(train_data_gen)
+        real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
 
         model.train()
         model.optimize_discriminator(train_data_gen, opt)
@@ -57,19 +63,16 @@ if __name__ == '__main__':
 
         # print training losses and save logging information to the log file and wandb charts:
         if i % opt.print_freq == 0:
-            visualizer.print_current_metrics(model, opt, conditioning, val_data_gen, i_epoch, i_batch,
-                                             tot_iters, run_start_time)
+            visualizer.print_current_metrics(model, i, opt, conditioning, val_data_gen, run_start_time)
         # Display visualizations:
         if i > 0 and i % opt.display_freq == 0:
-            visualizer.display_current_results(model, real_actors, conditioning, val_data_gen, opt, i_epoch,
-                                               i_batch, tot_iters)
+            visualizer.display_current_results(model, i, opt, conditioning, real_actors, val_data_gen)
 
         # cache our latest model every <save_latest_freq> iterations:
         if i > 0 and i % opt.save_latest_freq == 0:
-            print('saving the latest model (epoch %d, tot_iters %d)' % (i_epoch, tot_iters))
-            save_suffix = 'iter_%d' % i if opt.save_by_iter else 'latest'
+            print(f'saving the latest model (iteration {i+1})')
+            save_suffix = f'iter_{i+1}' if opt.save_by_iter else 'latest'
             model.save_networks(save_suffix)
 
-
         print(f'End of iteration {i+1}/{opt.n_iters}'
-              f', epoch run time {(time.time() - epoch_start_time):.2f} sec')
+              f', iter run time {(time.time() - iter_start_time):.2f} sec')

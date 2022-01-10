@@ -21,7 +21,6 @@ from models.networks import cal_gradient_penalty
 from . import networks
 from .base_model import BaseModel
 from util.helper_func import get_net_weights_norm
-from avsg_utils import pre_process_scene_data
 
 
 #########################################################################################
@@ -270,12 +269,9 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_discriminator(self, train_data_gen, opt):
+    def optimize_discriminator(self, conditioning, real_actors, opt):
         """Update network weights; it will be called in every training iteration."""
 
-        # unpack data from dataset and apply preprocessing:
-        scenes_batch = next(train_data_gen)
-        real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
@@ -288,12 +284,9 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_generator(self, train_data_gen, opt):
+    def optimize_generator(self, conditioning, real_actors, opt):
         """Update network weights; it will be called in every training iteration."""
 
-        # unpack data from dataset and apply preprocessing:
-        scenes_batch = next(train_data_gen)
-        real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
