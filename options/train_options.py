@@ -20,7 +20,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
         # training parameters
-        parser.add_argument('--n_iter', type=int, default=50000, help='number of total iterations')
+        parser.add_argument('--n_iter', type=int, default=500000, help='number of total iterations')
         parser.add_argument('--n_steps_G', type=int, default=3, help='number of generator update steps per iteration')
         parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
 
