@@ -58,7 +58,7 @@ class AvsgModel(BaseModel):
         if is_train:
             # ~~~~  Training optimization settings
             parser.set_defaults(
-                n_epochs=100,
+                n_iter=10000,
                 batch_size=64,
                 lr=0.02,
                 lr_policy='constant',  # [linear | step | plateau | cosine | constant]
@@ -193,7 +193,7 @@ class AvsgModel(BaseModel):
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
         #########################################################################################
 
-    def get_D_losses(self, conditioning, real_actors, opt):
+    def get_D_losses(self, opt, real_actors, conditioning):
         """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
@@ -236,7 +236,7 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def get_G_losses(self, conditioning, real_actors, opt):
+    def get_G_losses(self, opt, real_actors, conditioning):
         """Calculate loss terms for the generator"""
 
         fake_actors = self.netG(conditioning)
@@ -268,14 +268,14 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_discriminator(self, conditioning, real_actors, opt):
+    def optimize_discriminator(self, opt, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, log_metrics_D = self.get_D_losses(conditioning, real_actors, opt)
+        loss_D, log_metrics_D = self.get_D_losses(opt, real_actors, conditioning)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
         # Save for logging:
@@ -283,14 +283,14 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_generator(self, conditioning, real_actors, opt):
+    def optimize_generator(self, opt, real_actors, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        loss_G, log_metrics_G = self.get_G_losses(conditioning, real_actors, opt)
+        loss_G, log_metrics_G = self.get_G_losses(opt, real_actors, conditioning)
         loss_G.backward()  # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
         # Save for logging:

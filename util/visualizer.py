@@ -78,8 +78,8 @@ class Visualizer:
 
         val_batch = next(val_data_gen)
         val_real_actors, val_conditioning = pre_process_scene_data(val_batch, opt)
-        _, val_metrics_G = model.get_G_losses(val_conditioning, val_real_actors)
-        _, val_metrics_D = model.get_D_losses(val_conditioning, val_real_actors)
+        _, val_metrics_G = model.get_G_losses(opt, val_real_actors, val_conditioning)
+        _, val_metrics_D = model.get_D_losses(opt, val_real_actors, val_conditioning)
 
         # add some more metrics
         # additional metrics:
