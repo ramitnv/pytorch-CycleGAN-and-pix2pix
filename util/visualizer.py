@@ -4,7 +4,8 @@ import time
 
 import torch
 
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, get_single_conditioning_from_batch
+from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
+    get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
 
@@ -82,7 +83,7 @@ class Visualizer:
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {'Iteration': i+1,  'LR': model.lr,
+        run_metrics = {'Iteration': i + 1, 'LR': model.lr,
                        'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
@@ -121,7 +122,8 @@ class Visualizer:
 
     # ==========================================================================
 
-    def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen, file_type='jpg'):
+    def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen,
+                                file_type='jpg'):
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
@@ -158,7 +160,7 @@ class Visualizer:
                 for log_label, log_data in wandb_logs.items():
                     self.wandb_run.log({log_label: log_data})
 
-        print(f'Figure saved for iteration #{i+1}')
+        print(f'Figure saved for iteration #{i + 1}')
 
     # ==========================================================================
 
@@ -194,7 +196,8 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             for i_generator_run in range(vis_n_generator_runs):
                 fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
-                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, label=f'fake_{1+i_generator_run}')
+                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs,
+                                                 label=f'fake_{1 + i_generator_run}')
                 visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
@@ -217,6 +220,7 @@ def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
     caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
+
 
 ##############################################################################################
 
