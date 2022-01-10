@@ -41,8 +41,10 @@ class BaseModel(ABC):
         self.model_names = []
         self.visual_names = []
         self.optimizers = []
-        self.lr = opt.lr
+        self.lr_G = opt.lr_G
+        self.lr_D = opt.lr_D
         self.metric = 0  # used for learning rate policy 'plateau'
+
 
     @staticmethod
     def modify_commandline_options(parser, is_train):

@@ -41,66 +41,35 @@ class AvsgModel(BaseModel):
 
         # ~~~~  Data
         parser.add_argument('--data_path_val', type=str, default='', help='Path for validation dataset file')
-        parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
-                            help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
-
-        # ~~~~  General model settings
-        if is_train:
-            parser.set_defaults(gan_mode='wgangp',  # 'the type of GAN objective. [vanilla| lsgan | wgangp].
-                                # vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
-                                netD='SceneDiscriminator',
-                                netG='SceneGenerator')
-            parser.add_argument('--agents_decoder_model', type=str,
-                                default='MLP')  # | 'MLP' | 'LSTM'
-            # parser.add_argument('--num_samples_pack', type=int,
-            #                     default=1)  # accumulate  m samples to classify with D (as in PacGAN)
 
         if is_train:
-            # ~~~~  Training optimization settings
-            parser.set_defaults(
-                n_iter=1000,
-                batch_size=64,
-                lr=0.02,
-                lr_policy='constant',  # [linear | step | plateau | cosine | constant]
-                num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
-                save_latest_freq=1e6,  # frequency of saving the latest results
-            )
-            parser.add_argument('--reconstruct_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
-            parser.add_argument('--lambda_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
-            parser.add_argument('--lambda_gp', type=float, default=1., help='weight for gradient penalty in WGANGP')
+            parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
+                                help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
 
-            parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius",
-                                help=" None / Frobenius / L1 / Nuclear")
-            parser.add_argument('--type_weights_norm_G', type=str, default="None",
-                                help=" None / Frobenius / L1 / Nuclear")
-            parser.add_argument('--lambda_weights_norm_D', type=float, default=1e-4, help=" ")
-            parser.add_argument('--lambda_weights_norm_G', type=float, default=1e-4, help=" ")
+            # ~~~~  Map features
+            parser.add_argument('--polygon_name_order', type=list,
+                                default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
+            parser.add_argument('--closed_polygon_types', type=list,
+                                default=['crosswalks'], help='')
+            parser.add_argument('--max_points_per_poly', type=int, default=20,
+                                help='Maximal number of points per polygon element')
 
-        # ~~~~  Map features
-        parser.add_argument('--polygon_name_order', type=list,
-                            default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
-        parser.add_argument('--closed_polygon_types', type=list,
-                            default=['crosswalks'], help='')
-        parser.add_argument('--max_points_per_poly', type=int, default=20,
-                            help='Maximal number of points per polygon element')
+            # ~~~~  Agents features
+            parser.add_argument('--agent_feat_vec_coord_labels',
+                                default=['centroid_x',  # [0]  Real number
+                                         'centroid_y',  # [1]  Real number
+                                         'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                         'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                         'extent_length',  # [4] Real positive
+                                         'extent_width',  # [5] Real positive
+                                         'speed',  # [6] Real non-negative
+                                         'is_CAR',  # [7] 0 or 1
+                                         'is_CYCLIST',  # [8] 0 or 1
+                                         'is_PEDESTRIAN',  # [9]  0 or 1
+                                         ],
+                                type=list)
+            parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
-        # ~~~~  Agents features
-        parser.add_argument('--agent_feat_vec_coord_labels',
-                            default=['centroid_x',  # [0]  Real number
-                                     'centroid_y',  # [1]  Real number
-                                     'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                     'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                     'extent_length',  # [4] Real positive
-                                     'extent_width',  # [5] Real positive
-                                     'speed',  # [6] Real non-negative
-                                     'is_CAR',  # [7] 0 or 1
-                                     'is_CYCLIST',  # [8] 0 or 1
-                                     'is_PEDESTRIAN',  # [9]  0 or 1
-                                     ],
-                            type=list)
-        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
-
-        if is_train:
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
@@ -130,6 +99,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--agents_dec_use_bias', type=int, default=1)
             parser.add_argument('--agents_dec_mlp_n_layers', type=int, default=4)
             parser.add_argument('--gru_attn_layers', type=int, default=3, help='')
+            parser.add_argument('--agents_decoder_model', type=str,
+                                default='MLP')  # | 'MLP' | 'LSTM'
 
             # ~~~~ Display settings
             parser.set_defaults(
@@ -180,8 +151,8 @@ class AvsgModel(BaseModel):
                 raise NotImplementedError
             self.gan_mode = opt.gan_mode
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr_G, betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr_D, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 
