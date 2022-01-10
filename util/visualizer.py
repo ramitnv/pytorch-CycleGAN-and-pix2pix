@@ -83,7 +83,7 @@ class Visualizer:
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {'Iteration': i + 1, 'LR': model.lr,
+        run_metrics = {'Iteration': i+1, 'LR_G': model.lr_G, 'LR_D': model.lr_D,
                        'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
@@ -98,7 +98,7 @@ class Visualizer:
             metrics_dict['G_out_variability'] = feat_var_across_samples.mean()
 
         # print to console
-        message = '(' + ''.join([f'{name}: {num_to_str(v)} ' for name, v in run_metrics.items()]) + ')'
+        message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in run_metrics.items()]) + ')'
         message += '\nTrain: '
         message += ''.join([f'{name}: {num_to_str(v)} ' for name, v in (train_metrics_G | train_metrics_D).items()])
         message += '\nValidation: '
