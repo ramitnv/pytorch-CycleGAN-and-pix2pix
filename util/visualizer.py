@@ -111,6 +111,7 @@ class Visualizer:
 
         # update wandb charts
         if self.use_wandb:
+            self.wandb_run.log({f'run/{name}': v for name, v in run_metrics.items()})
             for data_type, data_metrics in {'train': {'G': val_metrics_G, 'D': val_metrics_D},
                                             'val': {'G': train_metrics_G, 'D': train_metrics_D}}.items():
                 for net_type, metrics in data_metrics.items():
