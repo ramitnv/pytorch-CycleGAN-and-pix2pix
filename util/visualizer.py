@@ -1,10 +1,9 @@
 import ntpath
 import os
 import time
-import numpy as np
-import array
+
 import torch
-from util.util import append_to_field, num_to_str
+from util.util import append_to_field, num_to_str, to_num
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
@@ -114,7 +113,7 @@ class Visualizer:
         if self.use_wandb:
             for name, v in metrics['run'].items():
                 self.wandb_run.log({f'run/{name}': v})
-                append_to_field(self.records, f'run/{name}', v.item())
+                append_to_field(self.records, f'run/{name}', to_num(v))
             for data_type in ['train', 'val']:
                 for net_type in ['G', 'D']:
                     for name, v in metrics[data_type][net_type].items():

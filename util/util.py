@@ -9,6 +9,15 @@ from PIL import Image
 
 ##############################################################################################
 
+def to_num(x):
+    if isinstance(x, torch.Tensor):
+        return x.item()
+    else:
+        return x
+
+
+##############################################################################################
+
 def num_to_str(x):
     if isinstance(x, int):
         return str(x)
