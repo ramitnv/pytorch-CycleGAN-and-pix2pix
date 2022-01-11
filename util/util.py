@@ -18,11 +18,11 @@ def to_num(x):
 
 ##############################################################################################
 
-def num_to_str(x):
-    if isinstance(x, int):
+def num_to_str(x, perc=None):
+    if isinstance(x, int) or perc is None:
         return str(x)
     else:
-        return f'{x:.2f}'
+        return f'{round(x, perc)}'
 
 ##############################################################################################
 def append_to_field(d: Dict, k, v):

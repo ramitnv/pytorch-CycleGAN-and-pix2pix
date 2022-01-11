@@ -1,13 +1,15 @@
 import ntpath
 import os
 import time
-
+import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from util.util import append_to_field, num_to_str, to_num
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
+
 
 try:
     import wandb
@@ -109,6 +111,9 @@ class Visualizer:
         with open(self.log_name, "a") as log_file:
             log_file.write(f'{message}\n')
 
+        if opt.isTrain:
+            model.train()
+
         # update wandb charts
         if self.use_wandb:
             for name, v in metrics['run'].items():
@@ -122,15 +127,28 @@ class Visualizer:
                         append_to_field(self.records, key_label, v)
             append_to_field(self.records, 'i', i)
 
-            losses_labels = []
-            # losses_seqs = []
-            # wandb.log({'D_Train_Losses_Scaled': wandb.plot.line_series(xs=self.records['i'],
-            #                                                            ys=losses_seqs,
-            #                                                            keys=losses_labels,
-            #                                                            title='D_Train_Losses_Scaled',
-            #                                                            xname='iter')})
-        if opt.isTrain:
-             model.train()
+            iter_grid = np.array(self.records['i'])
+
+            if iter_grid.shape[0] > 5:
+                losses_labels = ['loss_D_total',
+                                 'D loss on fakes',
+                                 'D loss on reals',
+                                 r'$\lambda$ (Weights Norm)']
+                losses_seqs = [np.array(self.records['train/D/loss_D']),
+                               np.array(self.records['train/D/loss_D_classify_fake']),
+                               np.array(self.records['train/D/loss_D_classify_real']),
+                               np.array(self.records['train/D/loss_D_weights_norm']) * opt.lambda_weights_norm_D]
+                # self.wandb_run.log({'D_Train_Losses_Weighted': wandb.plot.line_series(xs=np.array(self.records['i']),
+                #                                                                       ys=losses_seqs,
+                #                                                                       keys=losses_labels,
+                #                                                                       title='D_Train_Losses_Scaled',
+                #                                                                       xname='iter')})
+
+                for label, loss_seq in zip(losses_labels, losses_seqs):
+                    plt.plot(iter_grid, loss_seq, label=label)
+                plt.legend()
+                self.wandb_run.log({'D_Train_Losses_Weighted': plt})
+
 
     # ==========================================================================
 

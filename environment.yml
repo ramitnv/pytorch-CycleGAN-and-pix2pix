@@ -4,11 +4,12 @@ channels:
 - defaults
 dependencies:
 - python=3.9
+- - pip
 - numpy
-- pytorch=1.10.0
 - matplotlib
 - scipy
-- pip
+- pytorch=1.10.0
+- plotly
 - pip:
   - dominate==2.6.0
   - wandb==0.12.9
