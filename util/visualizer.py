@@ -129,7 +129,7 @@ class Visualizer:
 
             iter_grid = np.array(self.records['i'])
 
-            if iter_grid.shape[0] > 5:
+            if iter_grid.shape[0] > 1:
                 losses_labels = ['loss_D_total',
                                  'D loss on fakes',
                                  'D loss on reals',
