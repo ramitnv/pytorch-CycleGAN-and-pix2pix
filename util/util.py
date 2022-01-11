@@ -1,9 +1,26 @@
 """This module contains simple helper functions """
 import os
+from typing import Dict
 
 import numpy as np
 import torch
 from PIL import Image
+
+
+##############################################################################################
+
+def num_to_str(x):
+    if isinstance(x, int):
+        return str(x)
+    else:
+        return f'{x:.2f}'
+
+##############################################################################################
+def append_to_field(d: Dict, k, v):
+    if k in d.keys():
+        d[k].append(v)
+    else:
+        d[k] = [v]
 
 ##############################################################################################
 def make_tensor_1d(tsr):

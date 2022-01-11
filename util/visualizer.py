@@ -1,9 +1,10 @@
 import ntpath
 import os
 import time
-
+import numpy as np
+import array
 import torch
-
+from util.util import append_to_field, num_to_str
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
@@ -42,7 +43,7 @@ class Visualizer:
         self.use_wandb = opt.use_wandb
         self.current_fig_index = 0
         self.plotted_inds = []
-
+        self.records = dict()
         if self.use_wandb:
             self.wandb_run = wandb.init(project='SceneGen', name=opt.name, config=opt) if not wandb.run else wandb.run
             self.wandb_run._label(repo='SceneGen')
@@ -72,22 +73,22 @@ class Visualizer:
 
         """
         model.eval()
-
-        train_metrics_G = model.train_log_metrics_G
-        train_metrics_D = model.train_log_metrics_D
+        metrics = {'train': {'G': None, 'D': None}, 'val': {'G': None, 'D': None}}
+        metrics['train']['G'] = model.train_log_metrics_G
+        metrics['train']['D'] = model.train_log_metrics_D
 
         val_batch = next(val_data_gen)
         val_real_actors, val_conditioning = pre_process_scene_data(val_batch, opt)
-        _, val_metrics_G = model.get_G_losses(opt, val_real_actors, val_conditioning)
-        _, val_metrics_D = model.get_D_losses(opt, val_real_actors, val_conditioning)
+        _, metrics['val']['G'] = model.get_G_losses(opt, val_real_actors, val_conditioning)
+        _, metrics['val']['D'] = model.get_D_losses(opt, val_real_actors, val_conditioning)
 
         # add some more metrics
         # additional metrics:
-        run_metrics = {'Iteration': i+1, 'LR_G': model.lr_G, 'LR_D': model.lr_D,
-                       'run_hours': (time.time() - run_start_time) / 60 ** 2}
+        metrics['run'] = {'Iteration': i + 1, 'LR_G': model.lr_G, 'LR_D': model.lr_D,
+                          'run_hours': (time.time() - run_start_time) / 60 ** 2}
 
         # sample several fake agents per map to calculate G out variance
-        for conditioning, metrics_dict in [(train_conditioning, train_metrics_G), (val_conditioning, val_metrics_G)]:
+        for conditioning, data_type in [(train_conditioning, 'train'), (val_conditioning, 'val')]:
             samples_fake_agents_vecs = []
             for i_generator_run in range(opt.G_variability_n_runs):
                 samples_fake_agents_vecs.append(model.netG(conditioning).detach())
@@ -95,14 +96,14 @@ class Visualizer:
             # calculate variance across samples:
             feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
             # Average all output coordinates:
-            metrics_dict['G_out_variability'] = feat_var_across_samples.mean()
+            metrics[data_type]['G']['G_out_variability'] = feat_var_across_samples.mean()
 
         # print to console
-        message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in run_metrics.items()]) + ')'
-        message += '\nTrain: '
-        message += ''.join([f'{name}: {num_to_str(v)} ' for name, v in (train_metrics_G | train_metrics_D).items()])
-        message += '\nValidation: '
-        message += ''.join([f'{name}: {num_to_str(v)} ' for name, v in (val_metrics_G | val_metrics_D).items()])
+        message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in metrics['run'].items()]) + ')'
+        for data_type in ['train', 'val']:
+            for net_type in ['G', 'D']:
+                message += f'\n{data_type}: ' + ''.join([f'{name}: {num_to_str(v)} '
+                                                         for name, v in metrics[data_type][net_type].items()])
         print(message)
 
         # save to log file
@@ -111,15 +112,32 @@ class Visualizer:
 
         # update wandb charts
         if self.use_wandb:
-            self.wandb_run.log({f'run/{name}': v for name, v in run_metrics.items()})
-            for data_type, data_metrics in {'train': {'G': val_metrics_G, 'D': val_metrics_D},
-                                            'val': {'G': train_metrics_G, 'D': train_metrics_D}}.items():
-                for net_type, metrics in data_metrics.items():
-                    for name, v in metrics.items():
-                        self.wandb_run.log({f'{data_type}/{net_type}/{name}': v})
+            for name, v in metrics['run'].items():
+                self.wandb_run.log({f'run/{name}': v})
+                append_to_field(self.records, f'run/{name}', v.item())
+            for data_type in ['train', 'val']:
+                for net_type in ['G', 'D']:
+                    for name, v in metrics[data_type][net_type].items():
+                        key_label = f'{data_type}/{net_type}/{name}'
+                        self.wandb_run.log({key_label: v})
+                        append_to_field(self.records, key_label, v)
+            append_to_field(self.records, 'i', i)
 
+            losses_seqs, losses_labels = self.get_loss_series(net_type='G', data_type='train')
+            wandb.log({'D_Train_Losses_Scaled': wandb.plot.line_series(xs=self.records['i'],
+                                                                       ys=losses_seqs,
+                                                                       keys=losses_labels,
+                                                                       title='D_Train_Losses_Scaled',
+                                                                       xname='iter')})
         if opt.isTrain:
             model.train()
+
+    # ==========================================================================
+
+    def get_loss_series(self, net_type='G', data_type='train'):
+        losses_labels = [k for k in self.records.keys() if k.startswith(f'{data_type}/{net_type}')]
+        losses_seqs = [self.records[label] for label in losses_labels]
+        return losses_seqs, losses_labels
 
     # ==========================================================================
 
@@ -229,7 +247,7 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
     """Save images to the disk.
 
     Parameters:
-        webpage (the HTML class) -- the HTML webpage class that stores these imaegs (see html.py for more details)
+        webpage (the HTML class) -- the HTML webpage class that stores these images (see html.py for more details)
         visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
         image_path (str)         -- the string is used to create image paths
         aspect_ratio (float)     -- the aspect ratio of saved images
@@ -258,12 +276,4 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
     if use_wandb:
         wandb.log(ims_dict)
 
-
-##############################################################################################
-
-def num_to_str(x):
-    if isinstance(x, int):
-        return str(x)
-    else:
-        return f'{x:.2f}'
 ##############################################################################################
