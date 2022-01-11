@@ -122,14 +122,15 @@ class Visualizer:
                         append_to_field(self.records, key_label, v)
             append_to_field(self.records, 'i', i)
 
-            losses_seqs, losses_labels = self.get_loss_series(net_type='G', data_type='train')
-            wandb.log({'D_Train_Losses_Scaled': wandb.plot.line_series(xs=self.records['i'],
-                                                                       ys=losses_seqs,
-                                                                       keys=losses_labels,
-                                                                       title='D_Train_Losses_Scaled',
-                                                                       xname='iter')})
+            losses_labels = []
+            # losses_seqs = []
+            # wandb.log({'D_Train_Losses_Scaled': wandb.plot.line_series(xs=self.records['i'],
+            #                                                            ys=losses_seqs,
+            #                                                            keys=losses_labels,
+            #                                                            title='D_Train_Losses_Scaled',
+            #                                                            xname='iter')})
         if opt.isTrain:
-            model.train()
+             model.train()
 
     # ==========================================================================
 
