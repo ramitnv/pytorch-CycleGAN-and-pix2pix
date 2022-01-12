@@ -10,7 +10,6 @@ from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_ag
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
 
-
 try:
     import wandb
 except ImportError:
@@ -126,29 +125,36 @@ class Visualizer:
                         self.wandb_run.log({key_label: v})
                         append_to_field(self.records, key_label, v)
             append_to_field(self.records, 'i', i)
+            if len(self.records['i']) > 1:
+                loss_terms_D = [('D_loss_total', 'train/D/loss_D', 1),
+                                ('D_loss_on_fake', 'train/D/loss_D_classify_fake', 1),
+                                ('D_loss_on_real', 'train/D/loss_D_classify_real', 1),
+                                (r'$\lambda$*(Weights_Norm)', 'train/D/loss_D_weights_norm',
+                                 opt.lamb_loss_D_weights_norm,
+                                 (r'$\lambda$*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
+                                  opt.lamb_loss_D_grad_penalty))
+                                ]
+                self.log_weighted_losses(loss_terms_D, 'D_Train_Losses_Weighted')
 
-            iter_grid = np.array(self.records['i'])
+                # loss_terms_G = [('G_loss_total', 'train/G/loss_G', 1),
+                #                 ('D_loss_on_fake', 'train/D/loss_D_classify_fake', 1),
+                #                 ('D_loss_on_real', 'train/D/loss_D_classify_real', 1),
+                #                 (r'$\lambda$*(Weights_Norm)', 'train/D/loss_D_weights_norm',
+                #                  opt.lamb_loss_D_weights_norm,
+                #                  (r'$\lambda$*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
+                #                   opt.lamb_loss_D_grad_penalty))]
+                # self.log_weighted_losses(loss_terms_D, 'G_Train_Losses_Weighted')
 
-            if iter_grid.shape[0] > 1:
-                losses_labels = ['loss_D_total',
-                                 'D loss on fakes',
-                                 'D loss on reals',
-                                 r'$\lambda$*(Weights Norm)']
-                losses_seqs = [np.array(self.records['train/D/loss_D']),
-                               np.array(self.records['train/D/loss_D_classify_fake']),
-                               np.array(self.records['train/D/loss_D_classify_real']),
-                               np.array(self.records['train/D/loss_D_weights_norm']) * opt.lamb_loss_D_weights_norm]
-                # self.wandb_run.log({'D_Train_Losses_Weighted': wandb.plot.line_series(xs=np.array(self.records['i']),
-                #                                                                       ys=losses_seqs,
-                #                                                                       keys=losses_labels,
-                #                                                                       title='D_Train_Losses_Scaled',
-                #                                                                       xname='iter')})
+    # ==========================================================================
 
-                for label, loss_seq in zip(losses_labels, losses_seqs):
-                    plt.plot(iter_grid, loss_seq, label=label)
-                plt.legend()
-                self.wandb_run.log({'D_Train_Losses_Weighted': plt})
-
+    def log_weighted_losses(self, loss_terms, log_name):
+        iter_grid = np.array(self.records['i'])
+        for t in loss_terms:
+            label = t[0]
+            loss_seq = np.array(self.records[t[1]]) * t[2]
+            plt.plot(iter_grid, loss_seq, label=label)
+        plt.legend()
+        self.wandb_run.log({log_name: plt})
 
     # ==========================================================================
 
