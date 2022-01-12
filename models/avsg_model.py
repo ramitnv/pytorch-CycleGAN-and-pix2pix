@@ -224,8 +224,10 @@ class AvsgModel(BaseModel):
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
         if opt.temp_debug_flag:
-            loss_G_weights_norm *= 0
-            loss_G_GAN *= 0
+            if loss_G_weights_norm:
+                loss_G_weights_norm *= 0
+            if loss_G_GAN:
+                loss_G_GAN *= 0
 
         # combine losses
         loss_G = loss_G_GAN
@@ -235,7 +237,8 @@ class AvsgModel(BaseModel):
             if loss is not None:
                 loss_G += lamb * loss
 
-        log_metrics = {"loss_G": loss_G, "loss_G_GAN": loss_G_GAN,
+        log_metrics = {"loss_G": loss_G,
+                       "loss_G_GAN": loss_G_GAN,
                        "loss_G_reconstruct": loss_G_reconstruct,
                        "D_logit(fake)": d_out_for_fake,
                        "loss_G_weights_norm": loss_G_weights_norm}
