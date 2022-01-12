@@ -150,6 +150,8 @@ class Visualizer:
     def log_weighted_losses(self, loss_terms, log_name):
         iter_grid = np.array(self.records['i'])
         for t in loss_terms:
+            if t[1] not in self.records.keys():
+                continue
             label = t[0]
             loss_seq = np.array(self.records[t[1]]) * t[2]
             plt.plot(iter_grid, loss_seq, label=label)
