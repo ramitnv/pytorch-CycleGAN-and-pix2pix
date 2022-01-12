@@ -191,8 +191,8 @@ class AvsgModel(BaseModel):
 
         # combine losses
         loss_D = loss_D_classify_fake + loss_D_classify_real
-        reg_losses = [(opt.lambda_gp, loss_D_grad_penalty),
-                      (opt.lambda_weights_norm_D, loss_D_weights_norm)]
+        reg_losses = [(opt.lamb_loss_D_grad_penalty, loss_D_grad_penalty),
+                      (opt.lamb_loss_D_weights_norm, loss_D_weights_norm)]
         for (lamb, loss) in reg_losses:
             if loss is not None:
                 loss_D += lamb * loss
@@ -223,10 +223,14 @@ class AvsgModel(BaseModel):
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
+        if opt.temp_debug_flag:
+            loss_G_weights_norm *= 0
+            loss_G_GAN *= 0
+
         # combine losses
         loss_G = loss_G_GAN
-        reg_losses = [(opt.lambda_reconstruct, loss_G_reconstruct),
-                      (opt.lambda_weights_norm_G, loss_G_weights_norm)]
+        reg_losses = [(opt.lamb_loss_G_reconstruct, loss_G_reconstruct),
+                      (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)]
         for (lamb, loss) in reg_losses:
             if loss is not None:
                 loss_G += lamb * loss

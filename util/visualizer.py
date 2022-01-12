@@ -133,11 +133,11 @@ class Visualizer:
                 losses_labels = ['loss_D_total',
                                  'D loss on fakes',
                                  'D loss on reals',
-                                 r'$\lambda$ (Weights Norm)']
+                                 r'$\lambda$*(Weights Norm)']
                 losses_seqs = [np.array(self.records['train/D/loss_D']),
                                np.array(self.records['train/D/loss_D_classify_fake']),
                                np.array(self.records['train/D/loss_D_classify_real']),
-                               np.array(self.records['train/D/loss_D_weights_norm']) * opt.lambda_weights_norm_D]
+                               np.array(self.records['train/D/loss_D_weights_norm']) * opt.lamb_loss_D_weights_norm]
                 # self.wandb_run.log({'D_Train_Losses_Weighted': wandb.plot.line_series(xs=np.array(self.records['i']),
                 #                                                                       ys=losses_seqs,
                 #                                                                       keys=losses_labels,
