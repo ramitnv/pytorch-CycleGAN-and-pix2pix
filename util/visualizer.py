@@ -137,7 +137,7 @@ class Visualizer:
             self.log_weighted_losses(loss_terms_D, 'D_Train_Losses_Weighted')
 
             loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
-                            ('G_Loss_GAN', "train/G/loss_Gloss_G_GAN", 1),
+                            ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
                             (r'$\lambda$*(G_Loss_Reconstruct)', "train/G/loss_G_reconstruct",
                              opt.lamb_loss_G_reconstruct),
                             (r'$\lambda$*(Weights_Norm))', "train/G/loss_G_weights_norm",
