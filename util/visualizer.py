@@ -141,7 +141,7 @@ class Visualizer:
                             (r'$\lambda$*(G_Loss_Reconstruct)', "train/G/loss_G_reconstruct",
                              opt.lamb_loss_G_reconstruct),
                             (r'$\lambda$*(Weights_Norm))', "train/G/loss_G_weights_norm",
-                             opt.loss_G_weights_norm),
+                             opt.lamb_loss_G_weights_norm),
                             ]
             self.log_weighted_losses(loss_terms_G, 'G_Train_Losses_Weighted')
 
