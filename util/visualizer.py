@@ -96,7 +96,7 @@ class Visualizer:
             # calculate variance across samples:
             feat_var_across_samples = samples_fake_agents_vecs.var(dim=0)
             # Average all output coordinates:
-            metrics[data_type]['G']['G_out_variability'] = feat_var_across_samples.mean()
+            metrics[data_type]['G']['G_out_variability'] = feat_var_across_samples.mean().item()
 
         # print to console
         message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in metrics['run'].items()]) + ')'

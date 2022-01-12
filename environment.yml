@@ -9,7 +9,7 @@ dependencies:
 - matplotlib
 - scipy
 - pytorch=1.10.0
-- plotly
 - pip:
   - dominate==2.6.0
   - wandb==0.12.9
+  - plotly
