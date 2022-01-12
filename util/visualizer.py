@@ -125,25 +125,25 @@ class Visualizer:
                         self.wandb_run.log({key_label: v})
                         append_to_field(self.records, key_label, v)
             append_to_field(self.records, 'i', i)
-            if len(self.records['i']) > 1:
-                loss_terms_D = [('D_Loss_Total', 'train/D/loss_D', 1),
-                                ('D_Loss_on_Fake', 'train/D/loss_D_classify_fake', 1),
-                                ('D_Loss_on_Real', 'train/D/loss_D_classify_real', 1),
-                                (r'$\lambda$*(Weights_Norm)', 'train/D/loss_D_weights_norm',
-                                 opt.lamb_loss_D_weights_norm,
-                                 (r'$\lambda$*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
-                                  opt.lamb_loss_D_grad_penalty))
-                                ]
-                self.log_weighted_losses(loss_terms_D, 'D_Train_Losses_Weighted')
 
-                loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
-                                ('G_Loss_GAN', "train/G/loss_Gloss_G_GAN", 1),
-                                (r'$\lambda$*(G_Loss_Reconstruct)', "train/G/loss_G_reconstruct",
-                                 opt.lamb_loss_G_reconstruct),
-                                (r'$\lambda$*(Weights_Norm))', "train/G/loss_G_weights_norm",
-                                 opt.loss_G_weights_norm),
-                                ]
-                self.log_weighted_losses(loss_terms_G, 'G_Train_Losses_Weighted')
+            loss_terms_D = [('D_Loss_Total', 'train/D/loss_D', 1),
+                            ('D_Loss_on_Fake', 'train/D/loss_D_classify_fake', 1),
+                            ('D_Loss_on_Real', 'train/D/loss_D_classify_real', 1),
+                            (r'$\lambda$*(Weights_Norm)', 'train/D/loss_D_weights_norm',
+                             opt.lamb_loss_D_weights_norm,
+                             (r'$\lambda$*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
+                              opt.lamb_loss_D_grad_penalty))
+                            ]
+            self.log_weighted_losses(loss_terms_D, 'D_Train_Losses_Weighted')
+
+            loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
+                            ('G_Loss_GAN', "train/G/loss_Gloss_G_GAN", 1),
+                            (r'$\lambda$*(G_Loss_Reconstruct)', "train/G/loss_G_reconstruct",
+                             opt.lamb_loss_G_reconstruct),
+                            (r'$\lambda$*(Weights_Norm))', "train/G/loss_G_weights_norm",
+                             opt.loss_G_weights_norm),
+                            ]
+            self.log_weighted_losses(loss_terms_G, 'G_Train_Losses_Weighted')
 
     # ==========================================================================
 
