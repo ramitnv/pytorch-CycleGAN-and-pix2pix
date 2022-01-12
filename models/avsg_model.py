@@ -148,8 +148,14 @@ class AvsgModel(BaseModel):
                 raise NotImplementedError
             self.gan_mode = opt.gan_mode
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr_G, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr_D, betas=(opt.beta1, 0.999))
+            if opt.optimizer_type == 'Adam':
+                self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr_G, betas=(opt.beta1, 0.999))
+                self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr_D, betas=(opt.beta1, 0.999))
+            elif opt.optimizer_type == 'SGD':
+                self.optimizer_G = torch.optim.SGD(self.netG.parameters(), lr=opt.lr_G, momentum=opt.sgd_momentum)
+                self.optimizer_D = torch.optim.SGD(self.netD.parameters(), lr=opt.lr_D, momentum=opt.sgd_momentum)
+            else:
+                raise NotImplementedError
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 

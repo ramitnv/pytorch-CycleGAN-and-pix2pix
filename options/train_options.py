@@ -24,9 +24,11 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--n_steps_G', type=int, default=3, help='number of generator update steps per iteration')
         parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
 
-        parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
+        parser.add_argument('--optimizer_type', type=str, default='SGD', help='SGD / Adam')
         parser.add_argument('--lr_G', type=float, default=0.0001, help='initial learning rate for ADAM optimizer of G')
         parser.add_argument('--lr_D', type=float, default=0.0004, help='initial learning rate for ADAM optimizer of D')
+        parser.add_argument('--sgd_momentum', type=float, default=0.9, help='momentum')
+        parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         parser.add_argument('--gan_mode', type=str, default='vanilla', help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
         parser.add_argument('--lr_policy', type=str, default='constant', help='learning rate policy. [linear | step | plateau | cosine | constant]')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations if lr_policy==step' )
