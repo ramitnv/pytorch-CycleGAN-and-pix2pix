@@ -4,17 +4,18 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+from data.data_func import get_next_batch_cyclic
 from util.util import append_to_field, num_to_str, to_num
 from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
-
+import warnings
 try:
     import wandb
 except ImportError:
     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
-
+warnings.filterwarnings("ignore", "I found a path object that I don't think is part of a bar chart. Ignoring.")
 
 ##############################################################################################
 
@@ -77,7 +78,7 @@ class Visualizer:
         metrics['train']['G'] = model.train_log_metrics_G
         metrics['train']['D'] = model.train_log_metrics_D
 
-        val_batch = next(val_data_gen)
+        val_batch = get_next_batch_cyclic(val_data_gen)
         val_real_actors, val_conditioning = pre_process_scene_data(val_batch, opt)
         _, metrics['val']['G'] = model.get_G_losses(opt, val_real_actors, val_conditioning)
         _, metrics['val']['D'] = model.get_D_losses(opt, val_real_actors, val_conditioning)
@@ -215,7 +216,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
-    validation_batch = next(val_data_gen)
+    validation_batch = get_next_batch_cyclic(val_data_gen)
     val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}

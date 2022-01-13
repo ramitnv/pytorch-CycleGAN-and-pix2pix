@@ -11,13 +11,10 @@ You need to implement the following functions:
     -- <__getitem__>: Return a data point and its metadata information.
     -- <__len__>: Return the number of images.
 """
-import itertools
 import pickle
 import numpy as np
 import torch
-from data import create_dataset
 from data.base_dataset import BaseDataset
-
 
 #########################################################################################
 
@@ -140,12 +137,16 @@ class AvsgDataset(BaseDataset):
         with open(data_path, 'rb') as fid:
             self.dataset = pickle.loads(fid.read())
             print('Loaded dataset file ', data_path)
+            for k, v in self.dataset.items():
+                if len(v) > opt.max_dataset_size:
+                    print(f"Field {k} is truncated from {len(v)} to {opt.max_dataset_size}")
+                    self.dataset[k] = self.dataset[k][:opt.max_dataset_size]
 
         # get the image paths of your dataset;
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
         # self.transform = get_transform(opt)
         self.transform = []
-        self.collate_fn = lambda batch: avsg_data_collate(batch, opt)
+
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -172,10 +173,3 @@ class AvsgDataset(BaseDataset):
 
 #########################################################################################
 
-def get_cyclic_data_generator(opt, data_root):
-    dataset = create_dataset(opt, data_root)  # create a dataset given opt.dataset_mode and other options
-    print(f'Loaded data from {data_root}, dataset size = {len(dataset)} samples')
-    data_gen = itertools.cycle(dataset)
-    return data_gen
-
-#########################################################################################

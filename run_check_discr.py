@@ -5,7 +5,6 @@ Run using:
  --dataset_mode avsg  --model avsg_check_discr --data_path_train datasets/avsg_data/l5kit_train.pkl --data_path_val datasets/avsg_data/l5kit_sample.pkl --use_wandb
 * To change dataset files change --dataroot and --data_path_val
 * To run only on CPU add: --gpu_ids -1
-* To limit the datasets size --max_dataset_size 1000
 * Name the experiment with --name
 
 Note: if you get CUDA Uknown error, try $ apt-get install nvidia-modprobe
@@ -13,7 +12,7 @@ Note: if you get CUDA Uknown error, try $ apt-get install nvidia-modprobe
 import time
 
 import wandb
-from data import create_dataset
+from data.data_func import create_dataloader
 from models import create_model
 from util.helper_func import run_validation
 from options.train_options import TrainOptions
@@ -23,11 +22,11 @@ if __name__ == '__main__':
     opt = TrainOptions().parse()  # get training options
     assert opt.model == 'avsg_check_discr'
 
-    train_dataset = create_dataset(opt, data_root=opt.data_path_train)  # create a dataset given opt.dataset_mode and other options
+    train_dataset = create_dataloader(opt, data_root=opt.data_path_train)  # create a dataset given opt.dataset_mode and other options
     dataset_size = len(train_dataset)  # get the number of images in the dataset.
     print('The number of training samples = %d' % dataset_size)
 
-    eval_dataset = create_dataset(opt, data_root=opt.data_path_val)  # create a dataset given opt.dataset_mode and other options
+    eval_dataset = create_dataloader(opt, data_root=opt.data_path_val)  # create a dataset given opt.dataset_mode and other options
     eval_dataset_size = len(eval_dataset)  # get the number of images in the dataset.
     print('The number of test samples = %d' % eval_dataset_size)
     model = create_model(opt)  # create a model given opt.model and other options
