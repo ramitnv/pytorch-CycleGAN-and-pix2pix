@@ -138,7 +138,11 @@ class BaseOptions():
             if id >= 0:
                 opt.gpu_ids.append(id)
         if len(opt.gpu_ids) > 0:
-            torch.cuda.set_device(opt.gpu_ids[0])
+            if torch.cuda.is_available():
+                torch.cuda.set_device(opt.gpu_ids[0])
+            else:
+                opt.gpu_ids = None
+                print('CUDA is not available! running on CPU only..')
 
         self.opt = opt
         return self.opt
