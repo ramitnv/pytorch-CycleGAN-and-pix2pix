@@ -103,7 +103,7 @@ class Visualizer:
         message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in metrics['run'].items()]) + ')'
         for data_type in ['train', 'val']:
             for net_type in ['G', 'D']:
-                message += f'\n{data_type}: ' + ''.join([f'{name}: {num_to_str(v)} '
+                message += f'\n{data_type}: ' + ''.join([f'{name}: {num_to_str(v, perc=3)} '
                                                          for name, v in metrics[data_type][net_type].items()])
         print(message)
 
