@@ -219,6 +219,10 @@ class AvsgModel(BaseModel):
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         # Second, we want G(map) = map, since the generator acts also as an encoder-decoder for the map
+
+        if opt.temp_debug_flag:
+            real_actors *= 0
+
         loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
