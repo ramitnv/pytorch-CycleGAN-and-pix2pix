@@ -31,7 +31,7 @@ def get_next_batch_cyclic(data_gen):
     data_loader = data_gen['data_loader']
     data_iterator = data_gen['data_iterator']
     try:
-        batch_data = data_iterator.next()
+        batch_data = next(data_iterator)
     except StopIteration:
         #  just restart the iterator and re-use the samples
         data_iterator = iter(data_loader)
