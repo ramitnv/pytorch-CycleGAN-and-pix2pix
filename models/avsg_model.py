@@ -190,12 +190,12 @@ class AvsgModel(BaseModel):
         loss_D_weights_norm = get_net_weights_norm(self.netD, opt.type_weights_norm_D)
 
         # combine losses
-        loss_D = loss_D_classify_fake + loss_D_classify_real
+
         reg_losses = [(opt.lamb_loss_D_grad_penalty, loss_D_grad_penalty),
                       (opt.lamb_loss_D_weights_norm, loss_D_weights_norm)]
-        for (lamb, loss) in reg_losses:
-            if loss is not None:
-                loss_D += lamb * loss
+
+        reg_total = torch.stack([lamb * loss for (lamb, loss) in reg_losses if loss is not None]).sum()
+        loss_D = loss_D_classify_fake + loss_D_classify_real + reg_total
 
         log_metrics = {"loss_D": loss_D,
                        "loss_D_classify_fake": loss_D_classify_fake,
@@ -230,12 +230,12 @@ class AvsgModel(BaseModel):
                 loss_G_GAN *= 0
 
         # combine losses
-        loss_G = loss_G_GAN
         reg_losses = [(opt.lamb_loss_G_reconstruct, loss_G_reconstruct),
                       (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)]
-        for (lamb, loss) in reg_losses:
-            if loss is not None:
-                loss_G += lamb * loss
+
+        reg_total = torch.stack([lamb * loss for (lamb, loss) in reg_losses if loss is not None]).sum()
+
+        loss_G = loss_G_GAN + reg_total
 
         log_metrics = {"loss_G": loss_G,
                        "loss_G_GAN": loss_G_GAN,
