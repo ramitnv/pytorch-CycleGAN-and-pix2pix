@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from avsg_utils import get_poly_n_points_per_element
 from util.util import make_tensor_1d
-from models.avsg_sub_moudules import MLP, PointNet
+from models.sub_modules import MLP, PointNet
 
 
 class PolygonEncoder(nn.Module):

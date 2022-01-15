@@ -3,7 +3,7 @@ from torch import nn as nn
 from torch.nn import functional as nnf
 
 from models.avsg_map_encoder import MapEncoder
-from models.avsg_sub_moudules import PointNet, MLP
+from models.sub_modules import PointNet, MLP
 
 from util.helper_func import init_net
 

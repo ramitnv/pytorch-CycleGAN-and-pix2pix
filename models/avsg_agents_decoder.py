@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import linalg as LA
 
-from models.avsg_sub_moudules import MLP
+from models.sub_modules import MLP
 
 
 #########################################################################33
