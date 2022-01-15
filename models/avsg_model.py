@@ -23,7 +23,7 @@ from models.avsg_discriminator import cal_gradient_penalty
 from .avsg_discriminator import define_D
 from .avsg_generator import define_G
 from .base_model import BaseModel
-from util.helper_func import get_net_weights_norm
+from util.helper_func import get_net_weights_norm, sum_regularization_terms
 
 
 #########################################################################################
@@ -194,10 +194,10 @@ class AvsgModel(BaseModel):
 
         # combine losses
 
-        reg_losses = [(opt.lamb_loss_D_grad_penalty, loss_D_grad_penalty),
-                      (opt.lamb_loss_D_weights_norm, loss_D_weights_norm)]
+        reg_total = sum_regularization_terms([
+            (opt.lamb_loss_D_grad_penalty, loss_D_grad_penalty),
+            (opt.lamb_loss_D_weights_norm, loss_D_weights_norm)])
 
-        reg_total = torch.stack([lamb * loss for (lamb, loss) in reg_losses if loss is not None]).sum()
         loss_D = loss_D_classify_fake + loss_D_classify_real + reg_total
 
         log_metrics = {"loss_D": loss_D,
@@ -229,10 +229,9 @@ class AvsgModel(BaseModel):
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
         # combine losses
-        reg_losses = [(opt.lamb_loss_G_reconstruct, loss_G_reconstruct),
-                      (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)]
-
-        reg_total = torch.stack([lamb * loss for (lamb, loss) in reg_losses if loss is not None]).sum()
+        reg_total = sum_regularization_terms(
+            [(opt.lamb_loss_G_reconstruct, loss_G_reconstruct),
+             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)])
 
         loss_G = loss_G_GAN + reg_total
 

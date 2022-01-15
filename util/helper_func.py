@@ -169,6 +169,15 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 #     return L
 
 #########################################################################################
+
+def sum_regularization_terms(reg_losses):
+    weighted_terms = [lamb * loss for (lamb, loss) in reg_losses if loss is not None]
+    if not weighted_terms:
+        return 0.0
+    else:
+        return torch.stack(weighted_terms).sum()
+
+#########################################################################################
 def add_sn(m):
     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.ConvTranspose2d)):
         return torch.nn.utils.parametrizations.spectral_norm(m)
