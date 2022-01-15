@@ -46,7 +46,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--type_weights_norm_G', type=str, default="None",
                             help=" None / Frobenius / L1 / Nuclear")
         parser.add_argument('--lamb_loss_D_weights_norm', type=float, default=1e-4, help=" ")
-        parser.add_argument('--lamb_loss_G_weights_norm', type=float, default=1e-4, help=" ")
+        parser.add_argument('--lamb_loss_G_weights_norm', type=float, default=0, help=" ")
 
         self.isTrain = True
         return parser
