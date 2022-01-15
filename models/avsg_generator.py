@@ -1,11 +1,12 @@
 import torch
-import torch.nn as nn
+from torch import nn as nn
 
-from util.helper_func import get_norm_layer, init_net
-from .avsg_main_modules import SceneGenerator, SceneDiscriminator
+from models.avsg_agents_decoder import get_agents_decoder
+from models.avsg_map_encoder import MapEncoder
 
-###############################################################################
-# Helper Functions
+from util.helper_func import init_net
+
+
 ###############################################################################
 
 def define_G(opt, gpu_ids=None):
@@ -46,49 +47,46 @@ def define_G(opt, gpu_ids=None):
     return init_net(net, opt.init_type, opt.init_gain, gpu_ids)
 
 
-def define_D(opt,  gpu_ids=None):
-    """Create a discriminator
+###############################################################################
 
-    Parameters:
-        input_nc (int)     -- the number of channels in input images
-        ndf (int)          -- the number of filters in the first conv layer
-        netD (str)         -- the architecture's name: basic | n_layers | pixel
-        n_layers_D (int)   -- the number of conv layers in the discriminator; effective when netD=='n_layers'
-        norm (str)         -- the type of normalization layers used in the network.
-        init_type (str)    -- the name of the initialization method.
-        init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
-        gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
+class SceneGenerator(nn.Module):
 
-    Returns a discriminator
+    def __init__(self, opt):
+        super(SceneGenerator, self).__init__()
+        self.device = opt.device
+        self.max_num_agents = opt.max_num_agents
+        self.dim_latent_map = opt.dim_latent_map
+        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
+        self.dim_agent_noise = opt.dim_agent_noise
+        self.map_enc = MapEncoder(opt)
+        self.agents_dec = get_agents_decoder(opt, self.device)
+        # Debug - print parameter names:  [x[0] for x in self.named_parameters()]
+        self.batch_size = opt.batch_size
 
-    Our current implementation provides three types of discriminators:
-        [basic]: 'PatchGAN' classifier described in the original pix2pix paper.
-        It can classify whether 70×70 overlapping patches are real or fake.
-        Such a patch-level discriminator architecture has fewer parameters
-        than a full-image discriminator and can work on arbitrarily-sized images
-        in a fully convolutional fashion.
-
-        [n_layers]: With this mode, you can specify the number of conv layers in the discriminator
-        with the parameter <n_layers_D> (default=3 as used in [basic] (PatchGAN).)
-
-        [pixel]: 1x1 PixelGAN discriminator can classify whether a pixel is real or not.
-        It encourages greater color diversity but has no effect on spatial statistics.
-
-    The discriminator has been initialized by <init_net>. It uses Leakly RELU for non-linearity.
-    """
-    if gpu_ids is None:
-        gpu_ids = []
-
-    if opt.netD == 'SceneDiscriminator':
-        net = SceneDiscriminator(opt)
-    else:
-        raise NotImplementedError('Discriminator model name [%s] is not recognized' % opt.netD)
-    return init_net(net, opt.init_type, opt.init_gain, gpu_ids)
+    def forward(self, conditioning):
+        """Standard forward"""
+        n_actors_in_scene = conditioning['n_actors_in_scene']
+        if isinstance(n_actors_in_scene, int):
+            n_actors_in_scene = [n_actors_in_scene]
+        batch_len = len(n_actors_in_scene)
+        max_n_actors = max(n_actors_in_scene)
+        agents_feat_vecs_all = torch.zeros((batch_len, max_n_actors, self.dim_agent_feat_vec), device=self.device)
+        # iterate over batch:
+        for i_scene in range(batch_len):
+            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in
+                        conditioning['map_feat'].keys()}
+            map_latent = self.map_enc(map_feat)
+            latent_noise_std = 1.0
+            latent_noise = torch.randn(self.max_num_agents, self.dim_agent_noise, device=self.device) * latent_noise_std
+            n_agents = n_actors_in_scene[i_scene]
+            agents_feat_vecs = self.agents_dec(map_latent, latent_noise, n_agents)
+            agents_feat_vecs_all[i_scene, :n_agents, :] = agents_feat_vecs
+        return agents_feat_vecs_all
 
 
-##############################################################################
-# Classes
-##############################################################################
+###############################################################################
+
+
 class GANLoss(nn.Module):
     """Define different GAN objectives.
 
@@ -159,40 +157,4 @@ class GANLoss(nn.Module):
             raise ValueError('Invalid gan_mode')
         return loss
 
-
-def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='mixed', constant=1.0):
-    """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
-
-    Arguments:
-        netD (network)              -- discriminator network
-        real_samp (tensor array)    -- real images
-        fake_samp (tensor array)    -- generated images from the generator
-        device (str)                -- GPU / CPU: from torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
-        type (str)                  -- if we mix real and fake data or not [real | fake | mixed].
-        constant (float)            -- the constant used in formula ( ||gradient||_2 - constant)^2
-        lambda_gp (float)           -- weight for this loss
-
-    Returns the gradient penalty loss
-    """
-    device = model.device
-    if model.gan_mode != 'wgangp':
-        return None
-    if type == 'real':   # either use real images, fake images, or a linear interpolation of two.
-        interpolatesv = real_samp
-    elif type == 'fake':
-        interpolatesv = fake_samp
-    elif type == 'mixed':
-        alpha = torch.rand(real_samp.shape[0], 1, device=device)
-        alpha = alpha.expand(real_samp.shape[0], real_samp.nelement() // real_samp.shape[0]).contiguous().view(*real_samp.shape)
-        interpolatesv = alpha * real_samp + ((1 - alpha) * fake_samp)
-    else:
-        raise NotImplementedError('{} not implemented'.format(type))
-    interpolatesv.requires_grad_(True)
-    disc_interpolates = netD(conditioning, interpolatesv)
-    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolatesv,
-                                    grad_outputs=torch.ones(disc_interpolates.size()).to(device),
-                                    create_graph=True, retain_graph=True, only_inputs=True)
-    gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
-    gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean()        # added eps
-    return gradient_penalty
-
+###############################################################################

@@ -7,6 +7,10 @@ class TrainOptions(BaseOptions):
     It also includes shared options defined in BaseOptions.
     """
 
+    def __init__(self):
+        super().__init__()
+        self.isTrain = None
+
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
         #   visualization parameters

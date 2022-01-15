@@ -17,8 +17,11 @@ You need to implement the following functions:
 """
 
 import torch
-from models.networks import cal_gradient_penalty
-from . import networks
+
+import models.avsg_generator
+from models.avsg_discriminator import cal_gradient_penalty
+from .avsg_discriminator import define_D
+from .avsg_generator import define_G
 from .base_model import BaseModel
 from util.helper_func import get_net_weights_norm
 
@@ -135,11 +138,11 @@ class AvsgModel(BaseModel):
             self.model_names = ['G']
 
         # define networks
-        self.netG = networks.define_G(opt, self.gpu_ids)
+        self.netG = define_G(opt, self.gpu_ids)
         if self.isTrain:
-            self.netD = networks.define_D(opt, self.gpu_ids)
+            self.netD = define_D(opt, self.gpu_ids)
             # define loss functions
-            self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
+            self.criterionGAN = models.avsg_generator.GANLoss(opt.gan_mode).to(self.device)
             if opt.reconstruct_loss_type == 'L1':
                 self.criterion_reconstruct = torch.nn.L1Loss()
             elif opt.reconstruct_loss_type == 'MSE':

@@ -1,7 +1,7 @@
 import torch
 
 from avsg_utils import pre_process_scene_data
-from models import networks
+from models import avsg_discriminator
 from models.base_model import BaseModel
 
 
