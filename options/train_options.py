@@ -44,7 +44,5 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lamb_loss_D_weights_norm', type=float, default=1e-4, help=" ")
         parser.add_argument('--lamb_loss_G_weights_norm', type=float, default=1e-4, help=" ")
 
-        parser.add_argument('--temp_debug_flag', action='store_true', help='')
-
         self.isTrain = True
         return parser
