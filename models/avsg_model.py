@@ -221,7 +221,10 @@ class AvsgModel(BaseModel):
         # G aims to fool D to wrongly classify the fake sample (make D output "True")
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
-        loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
+        if opt.lamb_loss_G_reconstruct > 0:
+            loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
+        else:
+            loss_G_reconstruct = None
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 

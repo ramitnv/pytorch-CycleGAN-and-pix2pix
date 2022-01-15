@@ -39,7 +39,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_decay_factor', type=float, default=0.1, help='multiply by this every lr_decay_iters iterations if lr_policy==step')
 
         parser.add_argument('--reconstruct_loss_type', type=str, default='L1', help=" 'L1' | 'MSE' ")
-        parser.add_argument('--lamb_loss_G_reconstruct', type=float, default=5e-4, help='weight for reconstruct_loss ')
+        parser.add_argument('--lamb_loss_G_reconstruct', type=float, default=0, help='weight for reconstruct_loss ')
         parser.add_argument('--lamb_loss_D_grad_penalty', type=float, default=1., help='weight for gradient penalty in WGANGP')
         parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius",
                             help=" None / Frobenius / L1 / Nuclear")
