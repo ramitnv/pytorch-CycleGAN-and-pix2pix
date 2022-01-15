@@ -8,7 +8,7 @@ import models
 from util import util
 
 
-class BaseOptions():
+class BaseOptions:
     """This class defines options used during both training and test time.
 
     It also implements several helper functions such as parsing, printing, and saving the options.
@@ -17,6 +17,8 @@ class BaseOptions():
 
     def __init__(self):
         """Reset the class; indicates the class hasn't been initialized"""
+        self.opt = None
+        self.parser = None
         self.initialized = False
 
     def initialize(self, parser):

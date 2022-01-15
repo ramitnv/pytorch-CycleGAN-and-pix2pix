@@ -10,7 +10,7 @@ from util.helper_func import init_net
 
 ###############################################################################
 
-def define_D(opt,  gpu_ids=None):
+def define_D(opt, gpu_ids=None):
     """Create a discriminator
 
     Parameters:
@@ -91,7 +91,8 @@ class SceneDiscriminator(nn.Module):
         # iterate over batch:
         pred_fake = []
         for i_scene in range(batch_len):
-            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in conditioning['map_feat'].keys()}
+            map_feat = {poly_type: conditioning['map_feat'][poly_type][i_scene] for poly_type in
+                        conditioning['map_feat'].keys()}
             map_latent = self.map_enc(map_feat)
             agents_latent = self.agents_enc(agents_feat_vecs[i_scene])
             scene_latent = torch.cat([map_latent, agents_latent])
@@ -102,6 +103,7 @@ class SceneDiscriminator(nn.Module):
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
         '''
         return pred_fake
+
 
 ##############################################################################
 
@@ -122,13 +124,14 @@ def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='
     device = model.device
     if model.gan_mode != 'wgangp':
         return None
-    if type == 'real':   # either use real images, fake images, or a linear interpolation of two.
+    if type == 'real':  # either use real images, fake images, or a linear interpolation of two.
         interpolates_v = real_samp
     elif type == 'fake':
         interpolates_v = fake_samp
     elif type == 'mixed':
         alpha = torch.rand(real_samp.shape[0], 1, device=device)
-        alpha = alpha.expand(real_samp.shape[0], real_samp.nelement() // real_samp.shape[0]).contiguous().view(*real_samp.shape)
+        alpha = alpha.expand(real_samp.shape[0], real_samp.nelement() // real_samp.shape[0]).contiguous().view(
+            *real_samp.shape)
         interpolates_v = alpha * real_samp + ((1 - alpha) * fake_samp)
     else:
         raise NotImplementedError('{} not implemented'.format(type))
@@ -138,7 +141,7 @@ def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     create_graph=True, retain_graph=True, only_inputs=True)
     gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
-    gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean()        # added eps
+    gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean()  # added eps
     return gradient_penalty
 
 ###############################################################################
