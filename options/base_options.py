@@ -24,16 +24,16 @@ class BaseOptions:
     def initialize(self, parser):
         """Define the common options that are used in both training and test."""
         # basic parameters
-        parser.add_argument('--data_path_train', required=True, help='path to train data')
-        parser.add_argument('--name', type=str, default='experiment_name',
-                            help='name of the experiment. It decides where to store samples and models')
+        parser.add_argument('--name', type=str, default='experiment_name',  help='name of the experiment')
+        parser.add_argument('--data_path_train', type=str, default='datasets/avsg_data/l5kit_train.pkl', help='path to train data')
+        parser.add_argument('--data_path_val', type=str, default='datasets/avsg_data/l5kit_sample.pkl', help='Path for validation dataset file')
         parser.add_argument('--use_wandb', action='store_true', help='use wandb')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
 
         # model parameters
-        parser.add_argument('--model', type=str, default='cycle_gan',
-                            help='chooses which model to use. [cycle_gan | pix2pix | test | colorization]')
+        parser.add_argument('--model', type=str, default='avsg',
+                            help='chooses which model to us')
         parser.add_argument('--netD', type=str, default='SceneDiscriminator',
                             help='specify discriminator architecture [basic | n_layers | pixel]. The basic model is a 70x70 PatchGAN. n_layers allows you to specify the layers in the discriminator')
         parser.add_argument('--netG', type=str, default='SceneGenerator',
@@ -45,8 +45,8 @@ class BaseOptions:
                             help='scaling factor for normal, xavier and orthogonal.')
 
         # dataset parameters
-        parser.add_argument('--dataset_mode', type=str, default='unaligned',
-                            help='chooses how datasets are loaded. [unaligned | aligned | single | colorization]')
+        parser.add_argument('--dataset_mode', type=str, default='avsg',
+                            help='chooses how datasets are loaded.')
         parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 
         parser.add_argument('--num_threads', default=0, type=int, help='# threads for loading data') # threads for loading data, can increase to 4 for faster run if no mem issues

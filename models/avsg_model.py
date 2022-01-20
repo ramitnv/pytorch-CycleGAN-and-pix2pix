@@ -43,8 +43,6 @@ class AvsgModel(BaseModel):
         """
 
         # ~~~~  Data
-        parser.add_argument('--data_path_val', type=str, default='', help='Path for validation dataset file')
-
         if is_train:
             parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                                 help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
