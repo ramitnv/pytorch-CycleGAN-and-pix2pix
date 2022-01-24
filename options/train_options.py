@@ -14,7 +14,7 @@ class TrainOptions(BaseOptions):
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
         #   visualization parameters
-        parser.add_argument('--display_freq', type=int, default=10, help='frequency of showing training results on screen')
+        parser.add_argument('--display_freq', type=int, default=100, help='frequency of showing training results on screen')
         parser.add_argument('--update_html_freq', type=int, default=1000, help='frequency of saving training results to html')
         parser.add_argument('--print_freq', type=int, default=2, help='frequency of showing training results on console')
         parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
@@ -34,7 +34,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--sgd_momentum', type=float, default=0.9, help='momentum')
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         parser.add_argument('--gan_mode', type=str, default='vanilla', help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
-        parser.add_argument('--lr_policy', type=str, default='constant', help='learning rate policy. [linear | step | plateau | cosine | constant]')
+        parser.add_argument('--lr_policy', type=str, default='cosine', help='learning rate policy. [linear | step | plateau | cosine | constant]')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations if lr_policy==step' )
         parser.add_argument('--lr_decay_factor', type=float, default=0.1, help='multiply by this every lr_decay_iters iterations if lr_policy==step')
 
