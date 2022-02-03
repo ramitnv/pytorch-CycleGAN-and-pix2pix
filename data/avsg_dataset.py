@@ -24,8 +24,6 @@ if is_windows:
     temp = pathlib.PosixPath
     pathlib.PosixPath = pathlib.WindowsPath
 
-#########################################################################################
-
 
 
 #########################################################################################
@@ -44,14 +42,6 @@ def select_actors_from_scene(agents_feat_dicts, opt):
     np.random.shuffle(inds)  # shuffle so that the ego won't always be first
 
     return inds
-
-
-#########################################################################################
-def load_samples(self, inds):
-    aaa = self.dataset_info
-    agents_feat = None
-    map_feat = None
-    return {'agents_feat': agents_feat, 'map_feat': map_feat}
 
 
 #########################################################################################
@@ -75,6 +65,7 @@ class AvsgDataset(BaseDataset):
         # parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
         return parser
 
+    #########################################################################################
     def __init__(self, opt, data_path):
         """Initialize this dataset class.
 
@@ -88,24 +79,50 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
+        self.data_path = data_path
         info_file_path = Path(data_path, 'info_data').with_suffix('.pkl')
         with info_file_path.open('rb') as fid:
             dataset_info = pickle.load(fid)
-            self.dataset_info = dataset_info
+            self.dataset_props = dataset_info['dataset_props']
+            self.saved_mats_info = dataset_info['saved_mats_info']
+            self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
-            print(f"Total number of scenes: {self.dataset_info['n_scenes']}")
+            print(f"Total number of scenes: {self.n_scenes}")
 
-            # for k, v in self.dataset.items():
-            #     if len(v) > opt.max_dataset_size:
-            #         print(f"Field {k} is truncated from {len(v)} to {opt.max_dataset_size}")
-            #         self.dataset[k] = self.dataset[k][:opt.max_dataset_size]
 
         # get the image paths of your dataset;
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
         # self.transform = get_transform(opt)
         self.transform = []
 
+    #########################################################################################
 
+    def load_samples(self, inds):
+        dataset_props = self.dataset_props
+        saved_mats_info = self.saved_mats_info
+        agents_feat = {}
+        map_feat = {}
+        batch_size = len(inds)
+        assert batch_size <= self.n_scenes
+        for mat_name, mat_info in saved_mats_info.items():
+            data_shape = mat_info['shape']
+            data_type = mat_info['dtype']
+            # initialize a matrix, with same size as the data matrix, but with only batch_size scenes
+            map_feat[mat_name] = np.zeros((batch_size, data_shape[1:]), dtype=data_type)
+            # # Load the memmap data in Read-only mode:
+            file_path = Path(self.data_path, mat_name).with_suffix('.dat')
+            mat_shape = mat_info['shape']
+            n_scenes_all =  mat_shape[0]
+            n_bytes = data_type.itemsize
+            for ind in inds:
+                shape_to_load =
+                offset =
+                memmap_arr = np.memmap(file_path, dtype=, mode='r', shape=)
+                map_feat[mat_name] = memmap_arr
+
+        return {'agents_feat': agents_feat, 'map_feat': map_feat}
+
+    #########################################################################################
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -123,12 +140,16 @@ class AvsgDataset(BaseDataset):
         """
         return self.load_samples([index])
 
+    #########################################################################################
+
     def data_collate(self, batch):        
         return self.load_samples(batch)
 
+    #########################################################################################
+
     def __len__(self):
         """Return the total number of scenes."""
-        return len(self.dataset_info['n_scenes'])
+        return self.n_scenes
 
 #########################################################################################
 
