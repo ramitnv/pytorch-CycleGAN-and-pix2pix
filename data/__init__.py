@@ -47,4 +47,4 @@ def get_collate_fn_using_name(dataset_name, opt):
         collate_fn = lambda batch: avsg_data_collate(batch, opt)
     else:
         raise NotImplementedError()
-    return  collate_fn
+    return collate_fn

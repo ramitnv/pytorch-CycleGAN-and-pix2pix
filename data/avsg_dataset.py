@@ -11,6 +11,7 @@ You need to implement the following functions:
     -- <__getitem__>: Return a data point and its metadata information.
     -- <__len__>: Return the number of images.
 """
+import os.path
 import pickle
 import numpy as np
 import torch
@@ -118,7 +119,7 @@ class AvsgDataset(BaseDataset):
             the modified parser.
         """
         # parser.add_argument('--new_dataset_option', type=float, default=1.0, help='new dataset option')
-        parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
+        # parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
         return parser
 
     def __init__(self, opt, data_path):
@@ -134,13 +135,17 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
-        with open(data_path, 'rb') as fid:
+        info_file_path = os.path.join(data_path, 'info_data.pkl')
+        with open(info_file_path, 'rb') as fid:
             self.dataset = pickle.loads(fid.read())
             print('Loaded dataset file ', data_path)
-            for k, v in self.dataset.items():
-                if len(v) > opt.max_dataset_size:
-                    print(f"Field {k} is truncated from {len(v)} to {opt.max_dataset_size}")
-                    self.dataset[k] = self.dataset[k][:opt.max_dataset_size]
+
+            # print(f"Total number of scenes: {self.dataset.n_scenes}")
+
+            # for k, v in self.dataset.items():
+            #     if len(v) > opt.max_dataset_size:
+            #         print(f"Field {k} is truncated from {len(v)} to {opt.max_dataset_size}")
+            #         self.dataset[k] = self.dataset[k][:opt.max_dataset_size]
 
         # get the image paths of your dataset;
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
