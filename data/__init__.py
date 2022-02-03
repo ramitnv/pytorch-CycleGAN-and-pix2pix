@@ -34,17 +34,3 @@ def get_dataset_class_using_name(dataset_name):
     return dataset_class
 
 
-
-def get_collate_fn_using_name(dataset_name, opt):
-    """Import the module "data/[dataset_name]_dataset.py".
-
-    In the file, the class called DatasetNameDataset() will
-    be instantiated. It has to be a subclass of BaseDataset,
-    and it is case-insensitive.
-    """
-    if dataset_name == 'avsg':
-        from data.avsg_dataset import avsg_data_collate
-        collate_fn = lambda batch: avsg_data_collate(batch, opt)
-    else:
-        raise NotImplementedError()
-    return collate_fn
