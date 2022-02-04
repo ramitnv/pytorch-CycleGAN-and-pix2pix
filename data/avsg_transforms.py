@@ -12,7 +12,7 @@ class set_actors_num_and_shuffle(object):
 
     def __call__(self, sample):
         agents_feat = sample['agents_feat']
-        agents_num_orig =
+        # agents_num_orig =
         #
         # inds = agents_dists_order[:self.max_num_agents]  # take the closest agent to the ego
         # np.random.shuffle(inds)  # shuffle so that the ego won't always be first
