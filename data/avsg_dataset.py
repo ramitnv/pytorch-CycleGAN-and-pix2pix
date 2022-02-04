@@ -130,7 +130,10 @@ class AvsgDataset(BaseDataset):
                                    mode='r',
                                    shape=sample_shape,
                                    offset=offset)
-            map_feat[mat_name] = torch.Tensor(memmap_arr)
+            if mat_info['entity'] == 'map':
+                map_feat[mat_name] = torch.from_numpy(memmap_arr)
+            else:
+                agents_feat[mat_name] = torch.from_numpy(memmap_arr)
 
         return {'agents_feat': agents_feat, 'map_feat': map_feat}
 
