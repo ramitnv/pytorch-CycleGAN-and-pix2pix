@@ -19,30 +19,13 @@ from pathlib import Path
 import sys
 import pathlib
 import torch
+from data.avsg_transforms import set_actors_num_and_shuffle
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
     temp = pathlib.PosixPath
     pathlib.PosixPath = pathlib.WindowsPath
 
-
-
-#########################################################################################
-#########################################################################################
-
-
-def select_actors_from_scene(agents_feat_dicts, opt):
-    # Take the max_num_agents closest to ego, and shuffle their order
-    max_num_agents = opt.max_num_agents
-
-    actors_dists_to_ego = [np.linalg.norm(agent_dict['centroid'][:]) for agent_dict in agents_feat_dicts]
-
-    agents_dists_order = np.argsort(actors_dists_to_ego)
-
-    inds = agents_dists_order[:max_num_agents]  # take the closest agent to the ego
-    np.random.shuffle(inds)  # shuffle so that the ego won't always be first
-
-    return inds
 
 
 #########################################################################################
@@ -89,12 +72,7 @@ class AvsgDataset(BaseDataset):
             self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
             print(f"Total number of scenes: {self.n_scenes}")
-
-
-        # get the image paths of your dataset;
-        # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
-        # self.transform = get_transform(opt)
-        self.transform = []
+        self.transforms = [set_actors_num_and_shuffle(opt)]
 
     #########################################################################################
 
@@ -134,8 +112,10 @@ class AvsgDataset(BaseDataset):
                 map_feat[mat_name] = torch.from_numpy(memmap_arr)
             else:
                 agents_feat[mat_name] = torch.from_numpy(memmap_arr)
-
-        return {'agents_feat': agents_feat, 'map_feat': map_feat}
+        sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
+        for fn in self.transforms:
+            sample = fn(sample)
+        return sample
 
     ########################################################################################
 
