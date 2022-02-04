@@ -1,9 +1,8 @@
 import torch
 
-from avsg_utils import pre_process_scene_data
-from models import avsg_discriminator
+from datasets.avsg_utils import pre_process_scene_data
 from models.base_model import BaseModel
-
+from models.avsg_discriminator import define_D
 
 class AvsgCheckDiscrModel(BaseModel):
 
@@ -104,7 +103,7 @@ class AvsgCheckDiscrModel(BaseModel):
         opt.device = self.device
         self.polygon_name_order = opt.polygon_name_order
         self.task_name = opt.task_name
-        self.netD = networks.define_D(opt, self.gpu_ids)
+        self.netD = define_D(opt, self.gpu_ids)
         self.loss_criterion = torch.nn.MSELoss()
         print('Discriminator parameters: ', [p[0] for p in self.netD.named_parameters()])
         self.optimizer = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))

@@ -1,6 +1,6 @@
 import torch
 
-from avsg_utils import pre_process_scene_data
+from datasets.avsg_utils import pre_process_scene_data
 from models.base_model import BaseModel
 from avsg_map_encoder import MapEncoder
 

@@ -6,7 +6,7 @@ https://github.com/lyft/l5kit/blob/master/l5kit/l5kit/planning/vectorized/open_l
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from avsg_utils import get_poly_n_points_per_element
+from datasets.avsg_utils import get_poly_n_points_per_element
 from util.util import make_tensor_1d
 from models.sub_modules import MLP, PointNet
 
