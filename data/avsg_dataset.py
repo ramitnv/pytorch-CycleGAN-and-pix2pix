@@ -18,6 +18,7 @@ from data.base_dataset import BaseDataset
 from pathlib import Path
 import sys
 import pathlib
+import torch
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
@@ -97,33 +98,6 @@ class AvsgDataset(BaseDataset):
 
     #########################################################################################
 
-    def load_samples(self, inds):
-        dataset_props = self.dataset_props
-        saved_mats_info = self.saved_mats_info
-        agents_feat = {}
-        map_feat = {}
-        batch_size = len(inds)
-        assert batch_size <= self.n_scenes
-        for mat_name, mat_info in saved_mats_info.items():
-            data_shape = mat_info['shape']
-            data_type = mat_info['dtype']
-            # initialize a matrix, with same size as the data matrix, but with only batch_size scenes
-            map_feat[mat_name] = np.zeros((batch_size, data_shape[1:]), dtype=data_type)
-            # # Load the memmap data in Read-only mode:
-            file_path = Path(self.data_path, mat_name).with_suffix('.dat')
-            mat_shape = mat_info['shape']
-            n_scenes_all =  mat_shape[0]
-            n_bytes = data_type.itemsize
-            for ind in inds:
-                shape_to_load =
-                offset =
-                memmap_arr = np.memmap(file_path, dtype=, mode='r', shape=)
-                map_feat[mat_name] = memmap_arr
-
-        return {'agents_feat': agents_feat, 'map_feat': map_feat}
-
-    #########################################################################################
-
     def __getitem__(self, index):
         """Return a data point and its metadata information.
 
@@ -138,14 +112,29 @@ class AvsgDataset(BaseDataset):
         Step 3: convert your data to a PyTorch tensor. You can use helper functions such as self.transform. e.g., data = self.transform(image)
         Step 4: return a data point as a dictionary.
         """
-        return self.load_samples([index])
 
-    #########################################################################################
+        dataset_props = self.dataset_props
+        saved_mats_info = self.saved_mats_info
+        agents_feat = {}
+        map_feat = {}
+        for mat_name, mat_info in saved_mats_info.items():
+            data_shape = mat_info['shape']
+            data_type = mat_info['dtype']
+            # Load the memmap data in Read-only mode:
+            file_path = Path(self.data_path, mat_name).with_suffix('.dat')
+            sample_shape = data_shape[1:] # ize as the data matrix, but with only 1 scene
+            n_bytes = data_type.itemsize
+            offset = n_bytes * index
+            memmap_arr = np.memmap(str(file_path),
+                                   dtype=data_type,
+                                   mode='r',
+                                   shape=sample_shape,
+                                   offset=offset)
+            map_feat[mat_name] = torch.Tensor(memmap_arr)
 
-    def data_collate(self, batch):        
-        return self.load_samples(batch)
+        return {'agents_feat': agents_feat, 'map_feat': map_feat}
 
-    #########################################################################################
+    ########################################################################################
 
     def __len__(self):
         """Return the total number of scenes."""
