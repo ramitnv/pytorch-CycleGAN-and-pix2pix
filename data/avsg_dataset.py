@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 import pathlib
 import torch
-from data.avsg_transforms import set_actors_num_and_shuffle
+from data.avsg_transforms import SetActorsNum
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
@@ -64,6 +64,7 @@ class AvsgDataset(BaseDataset):
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
         self.data_path = data_path
+        self.device = opt.device
         info_file_path = Path(data_path, 'info_data').with_suffix('.pkl')
         with info_file_path.open('rb') as fid:
             dataset_info = pickle.load(fid)
@@ -72,7 +73,7 @@ class AvsgDataset(BaseDataset):
             self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
             print(f"Total number of scenes: {self.n_scenes}")
-        self.transforms = [set_actors_num_and_shuffle(opt)]
+        self.transforms = [SetActorsNum(opt)]
 
     #########################################################################################
 
@@ -108,10 +109,11 @@ class AvsgDataset(BaseDataset):
                                    mode='r',
                                    shape=sample_shape,
                                    offset=offset)
+            mat = torch.from_numpy(memmap_arr).to(device=self.device)
             if mat_info['entity'] == 'map':
-                map_feat[mat_name] = torch.from_numpy(memmap_arr)
+                map_feat[mat_name] = mat
             else:
-                agents_feat[mat_name] = torch.from_numpy(memmap_arr)
+                agents_feat[mat_name] = mat
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         for fn in self.transforms:
             sample = fn(sample)
