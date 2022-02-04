@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from data.data_func import get_next_batch_cyclic
 from util.util import append_to_field, num_to_str, to_num
-from datasets.avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
+from data.avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html

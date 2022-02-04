@@ -1,6 +1,6 @@
 import torch
 
-from datasets.avsg_utils import pre_process_scene_data
+from data.avsg_utils import pre_process_scene_data
 from models.base_model import BaseModel
 from models.avsg_discriminator import define_D
 
