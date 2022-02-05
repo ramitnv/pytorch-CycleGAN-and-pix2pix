@@ -31,7 +31,6 @@ from data.data_func import create_dataloader, get_next_batch_cyclic
 from models import create_model
 from options.train_options import TrainOptions
 from util.visualizer import Visualizer
-from data.avsg_utils import pre_process_scene_data
 
 if __name__ == '__main__':
     run_start_time = time.time()
