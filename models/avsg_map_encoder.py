@@ -44,7 +44,7 @@ class PolygonEncoder(nn.Module):
         # fit to conv1d input dimensions [batch_size  x n_elements x in_channels=2  x n_points]
         h = torch.permute(poly_elems_points, (0, 1, 3, 2))
 
-        # we combine the i_scene and i_element codinates, since all elements in all scenes go through same conv
+        # we combine the i_scene and i_element coordinates, since all elements in all scenes go through same conv
 
         h = torch.reshape(h, (batch_size*n_elements_max, 2, n_points))  # [(batch_size*n_elements) x in_channels=2  x n_points]
 
@@ -55,7 +55,13 @@ class PolygonEncoder(nn.Module):
             h = F.relu(h)
         # reshape back:
         h = torch.reshape(h, (batch_size, n_elements_max, self.dim_latent, n_points)) # [batch_size, n_elements x out_channels  x n_points]
-        h = h.sum(dim=-1) # [batch_size, n_elements x out_channels]
+        # Sum all points (to get shift invariance):
+        h = h.sum(dim=-1)  # [batch_size, n_elements x out_channels]
+
+        # zero out the elements that are not valid
+        h = h * poly_elems_exists.unsqueeze(-1).repeat(1, 1, self.dim_latent)
+
+        # output linear layer
         h = self.out_layer(h)
         return h
 
@@ -71,7 +77,7 @@ class MapEncoder(nn.Module):
         self.polygon_name_order = opt.polygon_name_order
         self.closed_polygon_types = opt.closed_polygon_types
         self.dim_latent_polygon_elem = opt.dim_latent_polygon_elem
-        n_polygon_types = len(opt.polygon_name_order)
+        self.n_polygon_types = len(opt.polygon_name_order)
         self.dim_latent_polygon_type = opt.dim_latent_polygon_type
         self.dim_latent_map = opt.dim_latent_map
         self.poly_encoder = nn.ModuleDict()
@@ -86,7 +92,7 @@ class MapEncoder(nn.Module):
                                                         d_hid=self.dim_latent_polygon_type,
                                                         n_layers=opt.n_layers_sets_aggregator,
                                                         opt=opt)
-        self.poly_types_aggregator = MLP(d_in=self.dim_latent_polygon_type * n_polygon_types,
+        self.poly_types_aggregator = MLP(d_in=self.dim_latent_polygon_type * self.n_polygon_types,
                                          d_out=self.dim_latent_map,
                                          d_hid=self.dim_latent_map,
                                          n_layers=opt.n_layers_poly_types_aggregator,
@@ -97,21 +103,20 @@ class MapEncoder(nn.Module):
         """
         map_elems_exists = map_feat['map_elems_exists']  # True for coordinates of valid poly elements
         map_elems_points = map_feat['map_elems_points']  # coordinates of the polygon elements
-        latents_per_poly_type = []
+        batch_size = map_elems_points.shape[0]
+        poly_types_latents = torch.zeros((batch_size, self.n_polygon_types, self.dim_latent_polygon_type)
+                                         , device=self.device)
         for i_poly_type, poly_type in enumerate(self.polygon_name_order):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
             poly_elems_points = map_elems_points[:, i_poly_type, :, :]  # [batch_size x n_points x 2 dims]
             poly_elems_exists = map_elems_exists[:, i_poly_type, :]     # [batch_size]
-            n_polys = poly_elems_exists.sum()
-            if n_polys == 0:
-                # if there are no polygon of this type in the scene:
-                latent_poly_type = torch.zeros(self.dim_latent_polygon_type, device=self.device)
-            else:
-                poly_elems_latent = poly_encoder(poly_elems_points, poly_elems_exists)
-                # Run PointNet to aggregate all polygon elements of this  polygon type
-                latent_poly_type = self.sets_aggregators[poly_type](poly_elems_latent)
-            latents_per_poly_type.append(latent_poly_type)
-        poly_types_latents = torch.cat(latents_per_poly_type)
+            poly_elems_latent = poly_encoder(poly_elems_points, poly_elems_exists)
+            # Run PointNet to aggregate all polygon elements of this  polygon type
+            # note that non-existent elements have 0 value in poly_elems_latent
+            poly_types_latents[:, i_poly_type, :] = self.sets_aggregators[poly_type](poly_elems_latent)
+
+        poly_types_latents = poly_types_latents.view(batch_size,
+                                                     self.dim_latent_polygon_type * self.n_polygon_types)
         map_latent = self.poly_types_aggregator(poly_types_latents)
         return map_latent
