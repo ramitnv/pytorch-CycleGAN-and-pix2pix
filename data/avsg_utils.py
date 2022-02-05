@@ -16,15 +16,6 @@ def get_single_conditioning_from_batch(conditioning_batch, i_map):
                     'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
     return conditioning
 
-
-#########################################################################################
-
-def get_poly_n_points_per_element(map_feat, poly_type):
-    poly_elements_valid = map_feat[poly_type + '_valid']
-    poly_n_points_per_element = poly_elements_valid.sum(dim=-1)
-    return poly_n_points_per_element
-
-
 #########################################################################################
 
 def agents_feat_vecs_to_dicts(agents_feat_vecs):
