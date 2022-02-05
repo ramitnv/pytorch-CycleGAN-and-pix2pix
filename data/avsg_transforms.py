@@ -30,7 +30,6 @@ class SetActorsNum(object):
 
 class PreprocessSceneData(object):
     def __init__(self, opt):
-        self.device = opt.device
         # We assume this order of coordinates:
         assert opt.agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y',
                                                    'yaw_cos', 'yaw_sin',
@@ -44,7 +43,7 @@ class PreprocessSceneData(object):
         agents_feat = sample['agents_feat']
         map_feat = sample['map_feat']
         agents_feat_vecs = agents_feat['agents_data']
-        agents_num_orig = agents_feat['agents_num']
+        agents_num = agents_feat['agents_num']
         if self.augmentation_type == 'none':
             pass
         elif self.augmentation_type == 'rotate_and_translate':
@@ -58,7 +57,7 @@ class PreprocessSceneData(object):
             rot_mat = torch.from_numpy(rot_mat).to(device=self.device, dtype=torch.float32)
 
             pos_shift_std = 50  # [m]
-            pos_shift = torch.rand(2, device=self.device) * pos_shift_std
+            pos_shift = torch.randn_like(agents_feat_vecs[0][:2]) * pos_shift_std
 
             for i_agent, ag in enumerate(agents_feat_vecs):
                 # Rotate the centroid (x,y)
@@ -80,21 +79,16 @@ class PreprocessSceneData(object):
             agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
             sample['agents_feat']['agents_data'] = agents_feat_vecs
             # Set zero to all map features
-            for poly_type in opt.polygon_name_order:
-                elems = scenes_batch['map_feat'][poly_type][i_scene]
+            for poly_type in self.polygon_name_order:
+                elems = map_feat[poly_type]
                 for i_elem, poly_elem in elems:
-                    for i_point, point in enumerate(poly_elem):
-                        if scenes_batch['map_feat'][poly_type + '_valid'][i_scene, i_elem, i_point]:
-                            scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] *= 0
-
+                    poly_elem = poly_elem * 0
+                    sample['map_feat'][poly_type][i_elem] = poly_elem
         else:
-            raise NotImplementedError(f'Unrecognized opt.augmentation_type  {opt.augmentation_type}')
-        conditioning = {'map_feat': scenes_batch['map_feat'], 'n_actors_in_scene': scenes_batch['n_actors_in_scene']}
-        real_actors = scenes_batch['agents_feat']
-        # sample['agents_feat']['agents_num'] = agents_num
-        # sample['agents_feat']['agents_data'] = sample['agents_feat']['agents_data'][inds]
+            raise NotImplementedError(f'Unrecognized opt.augmentation_type  {self.augmentation_type}')
 
-        conditioning = {}
+        conditioning = {'map_feat':  sample['map_feat'],
+                        'n_agents_in_scene': agents_num}
         sample = {'conditioning':  conditioning,
                   'agents_feat_vecs': agents_feat_vecs}
         return sample

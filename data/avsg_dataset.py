@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 import pathlib
 import torch
-from data.avsg_transforms import SetActorsNum
+from data.avsg_transforms import SetActorsNum, PreprocessSceneData
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
@@ -64,7 +64,7 @@ class AvsgDataset(BaseDataset):
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
         self.data_path = data_path
-        self.device = opt.device
+        self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
         info_file_path = Path(data_path, 'info_data').with_suffix('.pkl')
         with info_file_path.open('rb') as fid:
             dataset_info = pickle.load(fid)
@@ -73,7 +73,7 @@ class AvsgDataset(BaseDataset):
             self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
             print(f"Total number of scenes: {self.n_scenes}")
-        self.transforms = [SetActorsNum(opt)]
+        self.transforms = [SetActorsNum(opt), PreprocessSceneData(opt)]
 
     #########################################################################################
 

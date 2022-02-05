@@ -41,7 +41,6 @@ class AvsgModel(BaseModel):
         Returns:
             the modified parser.
         """
-
         # ~~~~  Data
         if is_train:
             parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
