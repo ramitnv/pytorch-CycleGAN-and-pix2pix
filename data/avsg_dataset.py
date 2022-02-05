@@ -99,8 +99,8 @@ class AvsgDataset(BaseDataset):
         for mat_name, mat_info in saved_mats_info.items():
             data_shape = mat_info['shape']
             data_type = mat_info['dtype']
-            # Load the memmap data in r+ mode (the data on disk won't be changed since we don't "flush", buy we use r+ to
-            # avoid warnings when transforming to PT tensors)
+            # Load the memmap data in r+ mode (the data on disk won't be changed since we don't "flush", buy we use
+            # r+ to avoid warnings when transforming to PT tensors)
             file_path = Path(self.data_path, mat_name).with_suffix('.dat')
             sample_shape = data_shape[1:] # ize as the data matrix, but with only 1 scene
             n_bytes = data_type.itemsize

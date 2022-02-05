@@ -19,7 +19,7 @@ class SetActorsNum(object):
         agents_feat = sample['agents_feat']
         agents_num_orig = agents_feat['agents_num']
         agents_feat_vecs = agents_feat['agents_data']
-        device = agents_feat_vecs.get_device()
+        device = agents_feat_vecs.device
         agent_feat_dim = agents_feat_vecs.shape[1]
         agents_num = min(agents_num_orig, self.max_num_agents)
         inds = np.arange(to_num(agents_num))
@@ -50,7 +50,7 @@ class PreprocessSceneData(object):
         map_feat = sample['map_feat']
         agents_feat_vecs = agents_feat['agents_data']
         agents_num = agents_feat['agents_num']
-        device = agents_feat_vecs.get_device()
+        device = agents_feat_vecs.device
         if self.augmentation_type == 'none':
             pass
         elif self.augmentation_type == 'rotate_and_translate':
@@ -91,11 +91,7 @@ class PreprocessSceneData(object):
             agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
             sample['agents_feat']['agents_data'] = agents_feat_vecs
             # Set zero to all map features
-            for poly_type in self.polygon_name_order:
-                elems = map_feat[poly_type]
-                for i_elem, poly_elem in elems:
-                    poly_elem = poly_elem * 0
-                    sample['map_feat'][poly_type][i_elem] = poly_elem
+            sample['map_feat']['map_elems_points'] *= 0
         else:
             raise NotImplementedError(f'Unrecognized opt.augmentation_type  {self.augmentation_type}')
 

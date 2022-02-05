@@ -13,10 +13,9 @@ from models.sub_modules import MLP, PointNet
 
 class PolygonEncoder(nn.Module):
 
-    def __init__(self, dim_latent, n_conv_layers, kernel_size, is_closed, device):
+    def __init__(self, dim_latent, n_conv_layers, kernel_size, device):
         super(PolygonEncoder, self).__init__()
         self.device = device
-        self.is_closed = is_closed
         self.dim_latent = dim_latent
         self.n_conv_layers = n_conv_layers
         self.kernel_size = kernel_size
@@ -35,37 +34,31 @@ class PolygonEncoder(nn.Module):
         self.layers = nn.ModuleList(self.conv_layers)
         self.out_layer = nn.Linear(self.dim_latent, self.dim_latent, device=self.device)
 
-    def forward(self, poly_points):
+    def forward(self, poly_elems_points, poly_elems_exists):
         """Standard forward
-        input [1 x n_points  x 2 coordinates]
+        poly_elems_points  [batch_size  x n_elements x n_points x 2d  ]
+        poly_elems_exists [batch_size  x n_elements]
         """
-        # fit to conv1d input dimensions [batch_size=1  x in_channels=2  x n_points]
-        n_squeezes = 0
-        while poly_points.ndim < 3:
-            poly_points = poly_points.unsqueeze(dim=0)
-            n_squeezes += 1
-        h = torch.permute(poly_points, (0, 2, 1))
+        batch_size = poly_elems_points.shape[0]
+        n_elements_max = poly_elems_points.shape[1]
+        n_points = poly_elems_points.shape[2]
 
-        if not self.is_closed:
-            # concatenate a reflection of this sequence, to create a circular closed polygon.
-            # since the model is cyclic-shift invariant, we get a pipeline that is
-            # invariant to the direction of the sequence
-            h = F.pad(h, (0, h.shape[2] - 1), mode='reflect').contiguous()
+        # fit to conv1d input dimensions [batch_size  x n_elements x in_channels=2  x n_points]
+        h = torch.permute(poly_elems_points, (0, 1, 3, 2))
 
-        # If the points sequence is too short to use the conv filter - pad in circular manner
-        while h.shape[2] < self.kernel_size:
-            pad_len = min(self.kernel_size - h.shape[2], h.shape[2])
-            h = F.pad(h, (0, pad_len), mode='circular').contiguous()
+        # we combine the i_scene and i_element codinates, since all elements in all scenes go through same conv
 
-        # We use several layers a 1d circular convolution followed by ReLu (equivariant layers)
+        h = torch.reshape(h, (batch_size*n_elements_max, 2, n_points))  # [(batch_size*n_elements) x in_channels=2  x n_points]
+
+        # We use several layers of  1d circular convolution followed by ReLu (equivariant layers)
         # and finally sum the output - this is all in all - a shift-invariant operator
         for i_layer in range(self.n_conv_layers):
             h = self.conv_layers[i_layer](h)
             h = F.relu(h)
-        h = h.sum(dim=2)
+        # reshape back:
+        h = torch.reshape(h, (batch_size, n_elements_max, self.dim_latent, n_points)) # [batch_size, n_elements x out_channels  x n_points]
+        h = h.sum(dim=-1) # [batch_size, n_elements x out_channels]
         h = self.out_layer(h)
-        for i in range(n_squeezes):
-            h = h.squeeze()
         return h
 
 
@@ -86,11 +79,9 @@ class MapEncoder(nn.Module):
         self.poly_encoder = nn.ModuleDict()
         self.sets_aggregators = nn.ModuleDict()
         for poly_type in self.polygon_name_order:
-            is_closed = poly_type in self.closed_polygon_types
             self.poly_encoder[poly_type] = PolygonEncoder(dim_latent=self.dim_latent_polygon_elem,
                                                           n_conv_layers=opt.n_conv_layers_polygon,
                                                           kernel_size=opt.kernel_size_conv_polygon,
-                                                          is_closed=is_closed,
                                                           device=self.device)
             self.sets_aggregators[poly_type] = PointNet(d_in=self.dim_latent_polygon_elem,
                                                         d_out=self.dim_latent_polygon_type,
@@ -106,29 +97,22 @@ class MapEncoder(nn.Module):
     def forward(self, map_feat):
         """Standard forward
         """
+        map_elems_exists = map_feat['map_elems_exists']  # True for coordinates of valid poly elements
+        map_elems_points = map_feat['map_elems_points']  # coordinates of the polygon elements
         latents_per_poly_type = []
         for i_poly_type, poly_type in enumerate(self.polygon_name_order):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
-            poly_n_points_per_element = get_poly_n_points_per_element(map_feat, poly_type)
-            poly_n_points_per_element = make_tensor_1d(poly_n_points_per_element)
-            if poly_n_points_per_element.sum() == 0:
+            poly_elems_points = map_elems_points[:, i_poly_type, :, :]  # [batch_size x n_points x 2 dims]
+            poly_elems_exists = map_elems_exists[:, i_poly_type, :]     # [batch_size]
+            n_polys = poly_elems_exists.sum()
+            if n_polys == 0:
                 # if there are no polygon of this type in the scene:
                 latent_poly_type = torch.zeros(self.dim_latent_polygon_type, device=self.device)
             else:
-                poly_latent_per_elem = []
-                for i_elem, n_points in enumerate(poly_n_points_per_element):
-                    if n_points == 0:
-                        continue
-                    poly_elem = map_feat[poly_type][i_elem][:n_points]
-                    # Transform from sequence of points to a fixed size vector,
-                    # using a circular-shift-invariant module
-                    poly_elem_latent = poly_encoder(poly_elem)
-                    poly_latent_per_elem.append(poly_elem_latent)
+                poly_elems_latent = poly_encoder(poly_elems_points, poly_elems_exists)
                 # Run PointNet to aggregate all polygon elements of this  polygon type
-                poly_latent_per_elem = torch.stack(poly_latent_per_elem)
-                assert poly_latent_per_elem.ndim == 2
-                latent_poly_type = self.sets_aggregators[poly_type](poly_latent_per_elem)
+                latent_poly_type = self.sets_aggregators[poly_type](poly_elems_latent)
             latents_per_poly_type.append(latent_poly_type)
         poly_types_latents = torch.cat(latents_per_poly_type)
         map_latent = self.poly_types_aggregator(poly_types_latents)
