@@ -37,9 +37,12 @@ class PreprocessSceneData(object):
                                                    'extent_length', 'extent_width', 'speed',
                                                    'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
         self.augmentation_type = opt.augmentation_type
+        self.polygon_name_order = opt.polygon_name_order
+
 
     def __call__(self, sample):
         agents_feat = sample['agents_feat']
+        map_feat = sample['map_feat']
         agents_feat_vecs = agents_feat['agents_data']
         agents_num_orig = agents_feat['agents_num']
         if self.augmentation_type == 'none':
@@ -57,30 +60,25 @@ class PreprocessSceneData(object):
             pos_shift_std = 50  # [m]
             pos_shift = torch.rand(2, device=self.device) * pos_shift_std
 
-            for ag in agents_feat_vecs:
+            for i_agent, ag in enumerate(agents_feat_vecs):
                 # Rotate the centroid (x,y)
                 ag[:2] = rot_mat @ ag[:2]
                 # Rotate the yaw angle (in unit vec form)
                 ag[2:4] = rot_mat @ ag[2:4]
                 # Translate centroid
                 ag[:2] += pos_shift
+                sample['agents_feat']['agents_data'][i_agent] = ag
 
-            scenes_batch['agents_feat'][i_scene] = agents_feat_vecs
-
-            for poly_type in opt.polygon_name_order:
-                elems = scenes_batch['map_feat'][poly_type][i_scene]
-                n_points_per_element = get_poly_n_points_per_element(scenes_batch['map_feat'], poly_type)[i_scene]
+            for poly_type in self.polygon_name_order:
+                elems = map_feat[poly_type]
                 for i_elem, poly_elem in enumerate(elems):
-                    for i_point in range(n_points_per_element[i_elem]):
-                        point = scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point]
-                        point = (rot_mat @ point) + pos_shift
-                        scenes_batch['map_feat'][poly_type][i_scene, i_elem, i_point] = point
+                    poly_elem = (rot_mat @ poly_elem) + pos_shift
+                    sample['map_feat'][poly_type][i_elem] = poly_elem
 
         elif self.augmentation_type == 'Gaussian_data':
             # Replace all the agent features data to gaussian samples... for debug
-            agents_feat_vecs = scenes_batch['agents_feat'][i_scene]
             agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
-            scenes_batch['agents_feat'][i_scene] = agents_feat_vecs
+            sample['agents_feat']['agents_data'] = agents_feat_vecs
             # Set zero to all map features
             for poly_type in opt.polygon_name_order:
                 elems = scenes_batch['map_feat'][poly_type][i_scene]
