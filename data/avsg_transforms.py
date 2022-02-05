@@ -25,13 +25,12 @@ class SetActorsNum(object):
         inds = np.arange(to_num(agents_num))
         if self.shuffle_agents_inds_flag:
             np.random.shuffle(inds)
-        sample['agents_feat']['agents_num'] = agents_num
+        sample['agents_feat']['agents_num'] = agents_num * torch.ones_like(agents_num_orig)
         agens_feat_vecs = torch.zeros((self.max_num_agents, agent_feat_dim),
                                       device=device)
         agens_feat_vecs[:agents_num] = sample['agents_feat']['agents_data'][inds]
         sample['agents_feat']['agents_data'] = agens_feat_vecs
         return sample
-
 
 #########################################################################################
 

@@ -41,21 +41,23 @@ if __name__ == '__main__':
     model = create_model(opt)  # create a model given opt.model and other options
     opt.device = model.device
     model.setup(opt)  # regular setup: load and print networks; create schedulers
+    model.train()
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
+
 
     start_time = time.time()
     for i in range(opt.n_iter):
         iter_start_time = time.time()  # timer for entire epoch
-        model.train()
-
+        conditioning = None
+        real_actors = None
         for i_step in range(opt.n_steps_D):
             scenes_batch = get_next_batch_cyclic(train_data_gen)
-            real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
+            conditioning, real_actors = scenes_batch['conditioning'], scenes_batch['agents_feat_vecs']
             model.optimize_discriminator(opt, real_actors, conditioning)
 
         for i_step in range(opt.n_steps_G):
             scenes_batch = get_next_batch_cyclic(train_data_gen)
-            real_actors, conditioning = pre_process_scene_data(scenes_batch, opt)
+            conditioning, real_actors = scenes_batch['conditioning'], scenes_batch['agents_feat_vecs']
             model.optimize_generator(opt, real_actors, conditioning)
 
         # update learning rates (must be after first model update step):
