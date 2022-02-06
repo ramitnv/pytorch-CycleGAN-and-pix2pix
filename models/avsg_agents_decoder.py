@@ -95,7 +95,6 @@ class AgentsDecoderMLP(nn.Module):
         self.d_in = self.dim_agent_noise * self.max_num_agents + opt.dim_latent_map
         self.d_out = self.dim_agent_feat_vec * self.max_num_agents
 
-
         self.decoder = MLP(d_in=self.d_in,
                            d_out=self.d_out,
                            d_hid=self.agents_dec_dim_hid,
@@ -104,9 +103,9 @@ class AgentsDecoderMLP(nn.Module):
                            bias=opt.agents_dec_use_bias)
 
     def forward(self, map_latent, latent_noise, n_agents):
-        latent_noise_f = torch.flatten(latent_noise)
-        in_vec = torch.cat([map_latent, latent_noise_f])
-        assert in_vec.shape[0] == self.d_in
+        batch_size = latent_noise.shape[0]
+        latent_noise = torch.reshape(latent_noise, (batch_size, -1))
+        in_vec = torch.cat([map_latent, latent_noise], dim=1)
         out_vec = self.decoder(in_vec)
 
         agents_feat_vec_list = []
