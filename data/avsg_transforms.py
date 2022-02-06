@@ -29,7 +29,8 @@ class SetActorsNum(object):
             np.random.shuffle(inds)
         agens_feat_vecs = torch.zeros((self.max_num_agents, agent_feat_dim),
                                       device=device)
-        agens_feat_vecs[:agents_num] = agents_feat_vecs_orig[inds]
+        for i_post, i_pre in enumerate(inds):
+            agens_feat_vecs[i_post, :] = agents_feat_vecs_orig[i_pre, :]
         agents_exists = torch.zeros(self.max_num_agents, device=device, dtype=torch.bool)
         agents_exists[:agents_num] = torch.tensor(True)
         sample['agents_feat']['agents_feat_vecs'] = agens_feat_vecs
@@ -70,6 +71,7 @@ class PreprocessSceneData(object):
             i_coord_orig = dataset_agent_feat_vec_coord_labels.index(label)
             agents_feat_vecs[:, i_coord] = agents_feat_vecs_orig[:, i_coord_orig]
 
+        assert torch.all(torch.sum(torch.abs(agents_feat_vecs), dim=1)) > 0.99 # at least 0.99 since, we have sin and cos
         if self.augmentation_type == 'none':
             pass
         elif self.augmentation_type == 'rotate_and_translate':
@@ -81,7 +83,7 @@ class PreprocessSceneData(object):
             aug_rot = np.random.rand(1).squeeze() * 2 * np.pi
             rot_mat = np.array([[np.cos(aug_rot), -np.sin(aug_rot)],
                                 [np.sin(aug_rot), np.cos(aug_rot)]])
-            rot_mat = torch.from_numpy(rot_mat).to(device=device)
+            rot_mat = torch.from_numpy(rot_mat).to(device=device, dtype=agents_feat_vecs_orig.dtype)
 
             pos_shift_std = 50  # [m]
             pos_shift = torch.randn_like(agents_feat_vecs[0][:2]) * pos_shift_std

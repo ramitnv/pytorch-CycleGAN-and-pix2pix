@@ -46,7 +46,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
                                 help=" 'none' | 'rotate_and_translate' | 'Gaussian_data' ")
 
-            parser.add_argument('--shuffle_agents_inds_flag', type=int, default=0,  help="")
+            parser.add_argument('--shuffle_agents_inds_flag', type=int, default=1,  help="")
 
             # ~~~~  Map features
             parser.add_argument('--polygon_name_order', type=list,
