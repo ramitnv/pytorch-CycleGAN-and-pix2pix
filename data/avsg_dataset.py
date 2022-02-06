@@ -117,7 +117,7 @@ class AvsgDataset(BaseDataset):
                 agents_feat[mat_name] = mat
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         for fn in self.transforms:
-            sample = fn(sample)
+            sample = fn(sample, dataset_props)
         return sample
 
     ########################################################################################

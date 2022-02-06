@@ -57,19 +57,30 @@ class AvsgModel(BaseModel):
                                 help='Maximal number of points per polygon element')
 
             # ~~~~  Agents features
+            # parser.add_argument('--agent_feat_vec_coord_labels',
+            #                     default=['centroid_x',  # [0]  Real number
+            #                              'centroid_y',  # [1]  Real number
+            #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            #                              'extent_length',  # [4] Real positive
+            #                              'extent_width',  # [5] Real positive
+            #                              'speed',  # [6] Real non-negative
+            #                              'is_CAR',  # [7] 0 or 1
+            #                              'is_CYCLIST',  # [8] 0 or 1
+            #                              'is_PEDESTRIAN',  # [9]  0 or 1
+            #                              ],
+            #                     type=list)
             parser.add_argument('--agent_feat_vec_coord_labels',
                                 default=['centroid_x',  # [0]  Real number
                                          'centroid_y',  # [1]  Real number
                                          'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
                                          'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                         'extent_length',  # [4] Real positive
-                                         'extent_width',  # [5] Real positive
-                                         'speed',  # [6] Real non-negative
-                                         'is_CAR',  # [7] 0 or 1
-                                         'is_CYCLIST',  # [8] 0 or 1
-                                         'is_PEDESTRIAN',  # [9]  0 or 1
+                                         'speed',  # [4] Real non-negative
                                          ],
                                 type=list)
+            parser.add_argument('--agent_extent_length_override', type=float, default=4.) # [m]
+            parser.add_argument('--agent_extent_width_override', type=float, default=1.5)  # [m]
+
             parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
             # ~~~~ general model settings

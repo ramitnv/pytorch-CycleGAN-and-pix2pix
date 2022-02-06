@@ -62,19 +62,30 @@ class SceneGenerator(nn.Module):
         self.agents_dec = get_agents_decoder(opt, self.device)
         # Debug - print parameter names:  [x[0] for x in self.named_parameters()]
         self.batch_size = opt.batch_size
+        self.latent_noise_std = 1.0
 
     def forward(self, conditioning):
         """Standard forward"""
         map_feat = conditioning['map_feat']
         n_agents_per_scene = conditioning['n_agents_in_scene']
+        agents_exists = conditioning['agents_exists']
         batch_size = len(n_agents_per_scene)
         map_latent = self.map_enc(map_feat)
-        latent_noise_std = 1.0
-        latent_noise = torch.randn(batch_size, self.max_num_agents, self.dim_agent_noise, device=self.device) * latent_noise_std
-        agents_feat_vecs = self.agents_dec(map_latent, latent_noise, n_agents_per_scene)
+        latent_noise = self.generate_latent_noise(batch_size, n_agents_per_scene)
+        agents_feat_vecs = self.agents_dec(map_latent, latent_noise, n_agents_per_scene, agents_exists)
         return agents_feat_vecs
 
-###############################################################################
+    def generate_latent_noise(self, batch_size, n_agents_per_scene):
+        # Agents decoder gets a latent noise that is non-zero only in coordinates “associated” with an agent
+        # (i.e., if there are only n agents to produce then only n/max_agents_num of the vector is non-zero)
+        latent_noise = torch.zeros(batch_size, self.max_num_agents, self.dim_agent_noise, device=self.device)
+        for i_scene in range(batch_size):
+            n_agents = n_agents_per_scene[i_scene]
+            latent_noise[i_scene, :n_agents] = self.latent_noise_std * torch.randn(
+                (1, n_agents, self.dim_agent_noise), device=self.device)
+        return latent_noise
+
+    ###############################################################################
 
 
 class GANLoss(nn.Module):
