@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 import pathlib
 import torch
-from data.avsg_transforms import SetActorsNum, PreprocessSceneData
+from data.avsg_transforms import SetActorsNum, PreprocessSceneData, ReadAgentsVecs
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
@@ -45,8 +45,37 @@ class AvsgDataset(BaseDataset):
         Returns:
             the modified parser.
         """
-        # parser.add_argument('--new_dataset_option', type=float, default=1.0, help='new dataset option')
-        # parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
+
+
+
+        # ~~~~  Agents features
+        # parser.add_argument('--agent_feat_vec_coord_labels',
+        #                     default=['centroid_x',  # [0]  Real number
+        #                              'centroid_y',  # [1]  Real number
+        #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        #                              'extent_length',  # [4] Real positive
+        #                              'extent_width',  # [5] Real positive
+        #                              'speed',  # [6] Real non-negative
+        #                              'is_CAR',  # [7] 0 or 1
+        #                              'is_CYCLIST',  # [8] 0 or 1
+        #                              'is_PEDESTRIAN',  # [9]  0 or 1
+        #                              ],
+        #                     type=list)
+        parser.add_argument('--agent_feat_vec_coord_labels',
+                            default=['centroid_x',  # [0]  Real number
+                                     'centroid_y',  # [1]  Real number
+                                     'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'speed',  # [4] Real non-negative
+                                     ],
+                            type=list)
+        # This agent extent is used (instead of being loaded from data)  if  agent_feat_vec_coord_labels
+        # does not include extent_length and extent_width features
+        parser.add_argument('--default_agent_extent_length', type=float, default=4.)  # [m]
+        parser.add_argument('--default_agent_extent_width', type=float, default=1.5)  # [m]
+
+        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
         return parser
 
     #########################################################################################
@@ -73,7 +102,10 @@ class AvsgDataset(BaseDataset):
             self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
             print(f"Total number of scenes: {self.n_scenes}")
-        self.transforms = [SetActorsNum(opt), PreprocessSceneData(opt)]
+        opt.polygon_name_order = self.dataset_props['polygon_types']
+        opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
+        opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
+        self.transforms = [ReadAgentsVecs(opt, self.dataset_props), SetActorsNum(opt), PreprocessSceneData(opt)]
 
     #########################################################################################
 
@@ -102,12 +134,12 @@ class AvsgDataset(BaseDataset):
             # Load the memmap data in r+ mode (the data on disk won't be changed since we don't "flush", buy we use
             # r+ to avoid warnings when transforming to PT tensors)
             file_path = Path(self.data_path, mat_name).with_suffix('.dat')
-            sample_shape = data_shape[1:] # ize as the data matrix, but with only 1 scene
+            sample_shape = data_shape[1:]  # size as the data matrix, but with only 1 scene
             n_bytes = data_type.itemsize
             offset = n_bytes * index
             memmap_arr = np.memmap(str(file_path),
                                    dtype=data_type,
-                                   mode='r+',
+                                   mode='r',
                                    shape=sample_shape,
                                    offset=offset)
             mat = torch.from_numpy(memmap_arr).to(device=self.device)
@@ -117,7 +149,7 @@ class AvsgDataset(BaseDataset):
                 agents_feat[mat_name] = mat
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         for fn in self.transforms:
-            sample = fn(sample, dataset_props)
+            sample = fn(sample)
         return sample
 
     ########################################################################################

@@ -49,39 +49,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--shuffle_agents_inds_flag', type=int, default=1,  help="")
 
             # ~~~~  Map features
-            parser.add_argument('--polygon_name_order', type=list,
-                                default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
-            parser.add_argument('--closed_polygon_types', type=list,
-                                default=['crosswalks'], help='')
-            parser.add_argument('--max_points_per_poly', type=int, default=20,
-                                help='Maximal number of points per polygon element')
 
-            # ~~~~  Agents features
-            # parser.add_argument('--agent_feat_vec_coord_labels',
-            #                     default=['centroid_x',  # [0]  Real number
-            #                              'centroid_y',  # [1]  Real number
-            #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-            #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-            #                              'extent_length',  # [4] Real positive
-            #                              'extent_width',  # [5] Real positive
-            #                              'speed',  # [6] Real non-negative
-            #                              'is_CAR',  # [7] 0 or 1
-            #                              'is_CYCLIST',  # [8] 0 or 1
-            #                              'is_PEDESTRIAN',  # [9]  0 or 1
-            #                              ],
-            #                     type=list)
-            parser.add_argument('--agent_feat_vec_coord_labels',
-                                default=['centroid_x',  # [0]  Real number
-                                         'centroid_y',  # [1]  Real number
-                                         'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                         'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-                                         'speed',  # [4] Real non-negative
-                                         ],
-                                type=list)
-            parser.add_argument('--agent_extent_length_override', type=float, default=4.) # [m]
-            parser.add_argument('--agent_extent_width_override', type=float, default=1.5)  # [m]
-
-            parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
 
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
