@@ -91,8 +91,6 @@ class PreprocessSceneData(object):
         agents_exists = agents_feat['agents_exists']
         agents_num = agents_feat['agents_num']
         device = agents_feat_vecs.device
-        assert torch.all(
-            torch.sum(torch.abs(agents_feat_vecs), dim=1)) > 0.99  # at least 0.99 since, we have sin and cos
         if self.augmentation_type == 'none':
             pass
         elif self.augmentation_type == 'rotate_and_translate':

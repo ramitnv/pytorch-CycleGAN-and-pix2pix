@@ -18,6 +18,7 @@ from data.base_dataset import BaseDataset
 from pathlib import Path
 import sys
 import pathlib
+import h5py
 import torch
 from data.avsg_transforms import SetActorsNum, PreprocessSceneData, ReadAgentsVecs
 
@@ -25,7 +26,6 @@ is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
     temp = pathlib.PosixPath
     pathlib.PosixPath = pathlib.WindowsPath
-
 
 
 #########################################################################################
@@ -45,8 +45,6 @@ class AvsgDataset(BaseDataset):
         Returns:
             the modified parser.
         """
-
-
 
         # ~~~~  Agents features
         # parser.add_argument('--agent_feat_vec_coord_labels',
@@ -94,7 +92,7 @@ class AvsgDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.data_path = data_path
         self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
-        info_file_path = Path(data_path, 'info_data').with_suffix('.pkl')
+        info_file_path = Path(data_path, 'info').with_suffix('.pkl')
         with info_file_path.open('rb') as fid:
             dataset_info = pickle.load(fid)
             self.dataset_props = dataset_info['dataset_props']
@@ -123,29 +121,25 @@ class AvsgDataset(BaseDataset):
         Step 3: convert your data to a PyTorch tensor. You can use helper functions such as self.transform. e.g., data = self.transform(image)
         Step 4: return a data point as a dictionary.
         """
-
         dataset_props = self.dataset_props
         saved_mats_info = self.saved_mats_info
         agents_feat = {}
         map_feat = {}
-        for mat_name, mat_info in saved_mats_info.items():
-            data_shape = mat_info['shape']
-            data_type = mat_info['dtype']
-            # Load the memmap data in read-only mode
-            file_path = Path(self.data_path, mat_name).with_suffix('.dat')
-            sample_shape = data_shape[1:]  # size as the data matrix, but with only 1 scene
-            n_bytes = data_type.itemsize
-            offset = n_bytes * np.prod(sample_shape) * index
-            memmap_arr = np.memmap(str(file_path),
-                                   dtype=data_type,
-                                   mode='r',
-                                   shape=sample_shape,
-                                   offset=offset)
-            mat = torch.from_numpy(memmap_arr).to(device=self.device)
-            if mat_info['entity'] == 'map':
-                map_feat[mat_name] = mat
-            else:
-                agents_feat[mat_name] = mat
+        file_path = Path(self.data_path, 'data').with_suffix('.h5')
+        with h5py.File(file_path, 'r') as h5f:
+            for mat_name, mat_info in saved_mats_info.items():
+                mat_sample = h5f[mat_name][index]
+                mat_sample = torch.from_numpy(mat_sample).to(device=self.device)
+                # ---------  Sanity check -----------
+                if mat_name == 'agents_feat_vecs':
+                    # should be at least 0.99 since, we have sin(yaw) and cos(yaw) as features
+                    assert torch.all(
+                        torch.sum(torch.abs(mat_sample), dim=1)) > 0.99
+                # ---------------------------------
+                if mat_info['entity'] == 'map':
+                    map_feat[mat_name] = mat_sample
+                else:
+                    agents_feat[mat_name] = mat_sample
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         for fn in self.transforms:
             sample = fn(sample)
@@ -158,4 +152,3 @@ class AvsgDataset(BaseDataset):
         return self.n_scenes
 
 #########################################################################################
-
