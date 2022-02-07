@@ -39,12 +39,17 @@ class ProjectionToAgentFeat(object):
             'speed',  # [4] Real non-negative
         ]
 
-    def __call__(self, agents_vecs, n_agents_per_scene):
+    def __call__(self, agents_vecs, n_agents_per_scene, agents_exists):
+        out_vec = torch.reshape(out_vec, (batch_size * self.max_num_agents, self.dim_agent_feat_vec))
+        agents_feat_vecs = torch.reshape(agents_feat_vecs, (batch_size, self.max_num_agents, self.dim_agent_feat_vec))
+
         batch_size = agents_vecs.shape[0]
         agent_feat_vec = torch.zeros((batch_size,), device=agents_vecs.device)
-        agent_feat = torch.cat([
-            # Coordinates 0,1 are centroid x,y - no need to project
-            raw_vec[0:2],
+
+
+        # Coordinates 0,1 are centroid x,y - no need to project
+        agent_feat_vec[0:2] =
+
             # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle
             raw_vec[2:4] / LA.vector_norm(raw_vec[2:4], ord=2),
             # Coordinates 4,5,6 are extent_length, extent_width, speed project to positive numbers
@@ -52,6 +57,7 @@ class ProjectionToAgentFeat(object):
             # Coordinates 7,8,9 are one-hot vector - project to 3-simplex
             F.softmax(raw_vec[7:10], dim=0)
         ])
+        agents_feat_vecs = masked_fill
         return agent_feat_vec
 
 
@@ -83,9 +89,7 @@ class AgentsDecoderMLP(nn.Module):
         in_vec = torch.cat([map_latent, latent_noise], dim=1)
         out_vec = self.decoder(in_vec)
         # Apply projection of each output vector to the feature vectors domain:
-        out_vec = torch.reshape(out_vec, (batch_size * self.max_num_agents, self.dim_agent_feat_vec))
-        agents_feat_vecs = self.project_to_agent_feat(out_vec, n_agents_per_scene)
-        agents_feat_vecs = torch.reshape(agents_feat_vecs, (batch_size, self.max_num_agents, self.dim_agent_feat_vec))
+        agents_feat_vecs = self.project_to_agent_feat(out_vec, n_agents_per_scene, agents_exists)
         return agents_feat_vecs
 
 #########
