@@ -43,18 +43,19 @@ class ProjectionToAgentFeat(object):
     def __call__(self, agents_vecs, n_agents_per_scene, agents_exists):
         '''
         agents_vecs [batch_size x max_num_agents x dim_agent_feat_vec)]
-        '''
         # Coordinates 0,1 are centroid x,y - no need to project
         # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle by normalizing to L norm ==1
-        eps = 1e-12
-        agents_vecs[:, :, 2:4] /= (LA.vector_norm(agents_vecs[:, :, 2:4], ord=2, dim=2, keepdims=True) + eps)
         # Coordinate 4 is speed project to positive numbers
-        # agents_vecs[:, :, 4] =  F.softplus(agents_vecs[:, :, 4])
-        agents_vecs[:, :, 4] = torch.abs(agents_vecs[:, :, 4])
+        '''
+        eps = 1e-12
+        agents_vecs = torch.cat([
+            agents_vecs[:, :, :2],
+            agents_vecs[:, :, 2:4] / (LA.vector_norm(agents_vecs[:, :, 2:4], ord=2, dim=2, keepdims=True) + eps),
+            torch.abs(agents_vecs[:, :, 4].unsqueeze(-1))  # should we use F.softplus ?
+        ], dim=2)
         # Set zero at non existent agents
         agents_vecs[agents_exists.bitwise_not()] = 0.
         return agents_vecs
-
 
 # ##############################################################################################
 
