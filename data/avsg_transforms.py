@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from util.util import to_num
 
+#########################################################################################
 
 class ReadAgentsVecs(object):
     """
@@ -26,14 +27,13 @@ class ReadAgentsVecs(object):
         for i_coord, label in enumerate(self.new_agent_feat_vec_coord_labels):
             i_coord_orig = self.old_agent_feat_vec_coord_labels.index(label)
             agents_feat_vecs[:, i_coord] = agents_feat_vecs_orig[:, i_coord_orig]
-
         sample['agents_feat']['agents_feat_vecs'] = agents_feat_vecs
         return sample
 
 
 #########################################################################################
 
-class SetActorsNum(object):
+class SelectAgents(object):
     """
     take the closest max_num_agents agents to the ego (the agents are ordered this way in the data)
     also shuffle their indexing
@@ -43,18 +43,18 @@ class SetActorsNum(object):
         self.max_num_agents = opt.max_num_agents
         self.shuffle_agents_inds_flag = opt.shuffle_agents_inds_flag
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-        self.agent_feat_vec_dim = opt.agent_feat_vec_dim
 
     def __call__(self, sample):
         agents_feat = sample['agents_feat']
         agents_num_orig = agents_feat['agents_num']
         # agents_exists_orig = agents_feat['agents_exists']
         device = agents_feat['agents_feat_vecs'].device
+        agent_feat_vec_dim_orig = agents_feat['agents_feat_vecs'].shape[1]
         agents_num = min(agents_num_orig, self.max_num_agents)
         inds = np.arange(to_num(agents_num))
         if self.shuffle_agents_inds_flag:
             np.random.shuffle(inds)
-        agens_feat_vecs = torch.zeros((self.max_num_agents, self.agent_feat_vec_dim),
+        agens_feat_vecs = torch.zeros((self.max_num_agents, agent_feat_vec_dim_orig),
                                       device=device)
         agens_feat_vecs[torch.arange(agents_num), :] = agents_feat['agents_feat_vecs'][inds, :]
 

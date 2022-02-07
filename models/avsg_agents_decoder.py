@@ -6,81 +6,55 @@ from torch import linalg as LA
 from models.sub_modules import MLP
 
 
-#########################################################################33
-#########################################################################33
+#########################################################################
 
 def get_agents_decoder(opt, device):
-
-    if opt.agents_decoder_model == 'LSTM':
-        return AgentsDecoderLstm(opt, device)
+    # if opt.agents_decoder_model == 'LSTM':
+    #     return AgentsDecoderLstm(opt, device)
     # if opt.agents_decoder_model == 'GRU':
     #     return AgentsDecoderGRU(opt, device)
     # elif opt.agents_decoder_model == 'GRU_attn':
     #     return AgentsDecoderGRUAttn(opt, device)
-    elif opt.agents_decoder_model == 'MLP':
+    if opt.agents_decoder_model == 'MLP':
         return AgentsDecoderMLP(opt, device)
     else:
         raise NotImplementedError
 
 
 #########################################################################################
-
-
-def project_to_agent_feat(raw_vec, is_exists):
-    # Project the generator output to the feature vectors domain:
-    agent_feat = torch.cat([
-        # Coordinates 0,1 are centroid x,y - no need to project
-        raw_vec[0:2],
-        # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle
-        raw_vec[2:4] / LA.vector_norm(raw_vec[2:4], ord=2),
-        # Coordinates 4,5,6 are extent_length, extent_width, speed project to positive numbers
-        F.softplus(raw_vec[4:7]),
-        # Coordinates 7,8,9 are one-hot vector - project to 3-simplex
-        F.softmax(raw_vec[7:10], dim=0)
-    ])
-    return agent_feat
-
-
-#########################################################################################
-
-class AgentsDecoderLstm(nn.Module):
-
+class ProjectionToAgentFeat(object):
+    '''
+    Project the generator output to the feature vectors domain
+    '''
     def __init__(self, opt, device):
-        super(AgentsDecoderLstm, self).__init__()
         self.device = device
-        self.dim_hid = opt.agents_dec_dim_hid
-        self.dim_in = opt.dim_agent_noise + opt.dim_latent_map
+        self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
-        self.num_agents = opt.num_agents
-        self.n_stacked = opt.agents_dec_n_stacked_rnns
-        self.lstm = nn.LSTM(input_size=self.dim_in,
-                            hidden_size=self.dim_hid,
-                            num_layers=opt.agents_dec_n_stacked_rnns,
-                            bias=bool(opt.agents_dec_use_bias),
-                            batch_first=True,
-                            proj_size=self.dim_agent_feat_vec)
-        # input to self.lstm should be of size [batch_size x num_agents x n_feat]
+        # code now supports only this feature format:
+        assert self.agent_feat_vec_coord_labels == [
+            'centroid_x',  # [0]  Real number
+            'centroid_y',  # [1]  Real number
+            'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            'speed',  # [4] Real non-negative
+        ]
 
-    def forward(self, map_latent: torch.Tensor, latent_noise: torch.Tensor):
-        map_latent = map_latent.unsqueeze(0)  # add batch dim
-        latent_noise = latent_noise.unsqueeze(0)  # add batch dim
-        # input to self.lstm should be of size [batch_size x num_agents x n_feat]
-        in_seq = torch.cat([map_latent.repeat([1, self.num_agents, 1]),
-                            latent_noise],
-                           dim=2)
-        out = self.lstm(in_seq)
-        outs, (hn, cn) = out
-        agents_feat_vec_list = []
-        for i_agent in range(self.num_agents):
-            out_agent = outs[0, i_agent, :]
-            # Project the generator output to the feature vectors domain:
-            agent_feat = project_to_agent_feat(out_agent)
-            agents_feat_vec_list.append(agent_feat)
-        agents_feat_vecs = torch.stack(agents_feat_vec_list)
-        return agents_feat_vecs
+    def __call__(self, agents_vecs, n_agents_per_scene):
+        batch_size = agents_vecs.shape[0]
+        agent_feat_vec = torch.zeros((batch_size,), device=agents_vecs.device)
+        agent_feat = torch.cat([
+            # Coordinates 0,1 are centroid x,y - no need to project
+            raw_vec[0:2],
+            # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle
+            raw_vec[2:4] / LA.vector_norm(raw_vec[2:4], ord=2),
+            # Coordinates 4,5,6 are extent_length, extent_width, speed project to positive numbers
+            F.softplus(raw_vec[4:7]),
+            # Coordinates 7,8,9 are one-hot vector - project to 3-simplex
+            F.softmax(raw_vec[7:10], dim=0)
+        ])
+        return agent_feat_vec
 
 
-#########################################################################################
 # ##############################################################################################
 
 class AgentsDecoderMLP(nn.Module):
@@ -95,7 +69,7 @@ class AgentsDecoderMLP(nn.Module):
         self.dim_agent_noise = opt.dim_agent_noise
         self.d_in = self.dim_agent_noise * self.max_num_agents + opt.dim_latent_map
         self.d_out = self.dim_agent_feat_vec * self.max_num_agents
-
+        self.project_to_agent_feat = ProjectionToAgentFeat(opt, device)
         self.decoder = MLP(d_in=self.d_in,
                            d_out=self.d_out,
                            d_hid=self.agents_dec_dim_hid,
@@ -103,27 +77,59 @@ class AgentsDecoderMLP(nn.Module):
                            opt=opt,
                            bias=opt.agents_dec_use_bias)
 
-    def forward(self, map_latent, latent_noise, n_agents, agents_exists):
+    def forward(self, map_latent, latent_noise, n_agents_per_scene, agents_exists):
         batch_size = latent_noise.shape[0]
         latent_noise = torch.reshape(latent_noise, (batch_size, self.max_num_agents * self.dim_agent_noise))
         in_vec = torch.cat([map_latent, latent_noise], dim=1)
         out_vec = self.decoder(in_vec)
         # Apply projection of each output vector to the feature vectors domain:
         out_vec = torch.reshape(out_vec, (batch_size * self.max_num_agents, self.dim_agent_feat_vec))
-        agents_exists = torch.flatten(agents_exists)
-        agents_feat_vecs = project_to_agent_feat(out_vec, agents_exists)
+        agents_feat_vecs = self.project_to_agent_feat(out_vec, n_agents_per_scene)
         agents_feat_vecs = torch.reshape(agents_feat_vecs, (batch_size, self.max_num_agents, self.dim_agent_feat_vec))
-
-        # agents_feat_vec_list = []
-        # for i_agent in range(n_agents):
-        #     output_feat = out_vec[i_agent * self.dim_agent_feat_vec:(i_agent + 1) * self.dim_agent_feat_vec]
-        #     # Project the generator output to the feature vectors domain:
-        #     agent_feat = project_to_agent_feat(output_feat)
-        #     agents_feat_vec_list.append(agent_feat)
-        # agents_feat_vecs = torch.stack(agents_feat_vec_list)
         return agents_feat_vecs
 
 #########
+
+#########################################################################################
+
+# class AgentsDecoderLstm(nn.Module):
+#
+#     def __init__(self, opt, device):
+#         super(AgentsDecoderLstm, self).__init__()
+#         self.device = device
+#         self.dim_hid = opt.agents_dec_dim_hid
+#         self.dim_in = opt.dim_agent_noise + opt.dim_latent_map
+#         self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
+#         self.num_agents = opt.num_agents
+#         self.n_stacked = opt.agents_dec_n_stacked_rnns
+#         self.lstm = nn.LSTM(input_size=self.dim_in,
+#                             hidden_size=self.dim_hid,
+#                             num_layers=opt.agents_dec_n_stacked_rnns,
+#                             bias=bool(opt.agents_dec_use_bias),
+#                             batch_first=True,
+#                             proj_size=self.dim_agent_feat_vec)
+#         # input to self.lstm should be of size [batch_size x num_agents x n_feat]
+#
+#     def forward(self, map_latent: torch.Tensor, latent_noise: torch.Tensor):
+#         map_latent = map_latent.unsqueeze(0)  # add batch dim
+#         latent_noise = latent_noise.unsqueeze(0)  # add batch dim
+#         # input to self.lstm should be of size [batch_size x num_agents x n_feat]
+#         in_seq = torch.cat([map_latent.repeat([1, self.num_agents, 1]),
+#                             latent_noise],
+#                            dim=2)
+#         out = self.lstm(in_seq)
+#         outs, (hn, cn) = out
+#         agents_feat_vec_list = []
+#         for i_agent in range(self.num_agents):
+#             out_agent = outs[0, i_agent, :]
+#             # Project the generator output to the feature vectors domain:
+#             agent_feat = project_to_agent_feat(out_agent)
+#             agents_feat_vec_list.append(agent_feat)
+#         agents_feat_vecs = torch.stack(agents_feat_vec_list)
+#         return agents_feat_vecs
+
+
+#########################################################################################
 
 #########################################################################################
 

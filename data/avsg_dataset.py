@@ -20,7 +20,7 @@ import sys
 import pathlib
 import h5py
 import torch
-from data.avsg_transforms import SetActorsNum, PreprocessSceneData, ReadAgentsVecs
+from data.avsg_transforms import SelectAgents, PreprocessSceneData, ReadAgentsVecs
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:
@@ -103,7 +103,7 @@ class AvsgDataset(BaseDataset):
         opt.polygon_name_order = self.dataset_props['polygon_types']
         opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
         opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
-        self.transforms = [ReadAgentsVecs(opt, self.dataset_props), SetActorsNum(opt), PreprocessSceneData(opt)]
+        self.transforms = [SelectAgents(opt), ReadAgentsVecs(opt, self.dataset_props), PreprocessSceneData(opt)]
 
     #########################################################################################
 
@@ -128,14 +128,8 @@ class AvsgDataset(BaseDataset):
         file_path = Path(self.data_path, 'data').with_suffix('.h5')
         with h5py.File(file_path, 'r') as h5f:
             for mat_name, mat_info in saved_mats_info.items():
-                mat_sample = h5f[mat_name][index]
+                mat_sample = np.array(h5f[mat_name][index])
                 mat_sample = torch.from_numpy(mat_sample).to(device=self.device)
-                # ---------  Sanity check -----------
-                if mat_name == 'agents_feat_vecs':
-                    # should be at least 0.99 since, we have sin(yaw) and cos(yaw) as features
-                    assert torch.all(
-                        torch.sum(torch.abs(mat_sample), dim=1)) > 0.99
-                # ---------------------------------
                 if mat_info['entity'] == 'map':
                     map_feat[mat_name] = mat_sample
                 else:
@@ -143,6 +137,15 @@ class AvsgDataset(BaseDataset):
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         for fn in self.transforms:
             sample = fn(sample)
+
+        # ---------  Sanity check -----------
+        # should be at least 0.999 since, we have sin(yaw) and cos(yaw) as features
+        agents_feat_vecs = sample['agents_feat_vecs']
+        n_agents_in_scene = sample['conditioning']['n_agents_in_scene']
+        assert torch.all(
+            torch.sum(torch.abs(agents_feat_vecs[:n_agents_in_scene]), dim=1)) > 0.999
+        # ---------------------------------
+
         return sample
 
     ########################################################################################
