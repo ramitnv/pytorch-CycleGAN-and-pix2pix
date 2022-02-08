@@ -32,8 +32,8 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
         agent_feat_dict = ({'centroid': agent_feat_vec[:2],
                             'yaw': torch.atan2(agent_feat_vec[3], agent_feat_vec[2]),
                             'speed': agent_feat_vec[4],
-                            'extent': [opt.default_agent_extent_length, opt.default_agent_extent_width],
-                            'agent_label_id': 0  # CAR
+                            'extent': torch.Tensor([opt.default_agent_extent_length, opt.default_agent_extent_width]),
+                            'agent_label_id': torch.Tensor(0)  # CAR
                             })
         for key in agent_feat_dict.keys():
             agent_feat_dict[key] = agent_feat_dict[key].detach().cpu().numpy()
