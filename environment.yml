@@ -8,6 +8,7 @@ dependencies:
 - numpy
 - matplotlib
 - scipy
+- h5py
 - pytorch=1.10.0
 - pip:
   - dominate==2.6.0

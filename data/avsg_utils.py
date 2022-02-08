@@ -3,32 +3,38 @@ import torch
 
 #########################################################################################
 
-def get_single_map_from_batch(map_feat_batch, i_map):
-    map_feat = {poly_type: map_feat_batch[poly_type][i_map] for poly_type in map_feat_batch.keys()}
-    return map_feat
-
-
-#########################################################################################
 
 def get_single_conditioning_from_batch(conditioning_batch, i_map):
-    map_feat = get_single_map_from_batch(conditioning_batch['map_feat'], i_map)
+    map_feat_batch = conditioning_batch['map_feat']
+    # get single map from batch:
+    map_feat = {k: map_feat_batch[k][i_map] for k in map_feat_batch.keys()}
     conditioning = {'map_feat': map_feat,
-                    'n_actors_in_scene': conditioning_batch['n_actors_in_scene'][i_map]}
+                    'n_actors_in_scene': conditioning_batch['n_agents_in_scene'][i_map],
+                    'agents_exists':  conditioning_batch['agents_exists'][i_map]}
     return conditioning
 
 #########################################################################################
 
-def agents_feat_vecs_to_dicts(agents_feat_vecs):
+def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
     assert agents_feat_vecs.ndim == 2
+    # code now supports only this feature format:
+    assert opt.agent_feat_vec_coord_labels == [
+        'centroid_x',  # [0]  Real number
+        'centroid_y',  # [1]  Real number
+        'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        'speed',  # [4] Real non-negative
+    ]
     agents_feat_dicts = []
     n_agents = agents_feat_vecs.shape[0]
     for i_agent in range(n_agents):
         agent_feat_vec = agents_feat_vecs[i_agent]
         agent_feat_dict = ({'centroid': agent_feat_vec[:2],
                             'yaw': torch.atan2(agent_feat_vec[3], agent_feat_vec[2]),
-                            'extent': agent_feat_vec[4:6],
-                            'speed': agent_feat_vec[6],
-                            'agent_label_id': torch.argmax(agent_feat_vec[7:10])})
+                            'speed': agent_feat_vec[4],
+                            'extent': [opt.default_agent_extent_length, opt.default_agent_extent_width],
+                            'agent_label_id': 0  # CAR
+                            })
         for key in agent_feat_dict.keys():
             agent_feat_dict[key] = agent_feat_dict[key].detach().cpu().numpy()
         agents_feat_dicts.append(agent_feat_dict)

@@ -236,7 +236,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
             # Add an image of the map & real agents to wandb logs
             log_label = f"{dataset_name}_iter_{i + 1}_map_{i_map + 1}"
-            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real')
+            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real')
             visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
@@ -244,7 +244,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             for i_generator_run in range(vis_n_generator_runs):
                 fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
-                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs,
+                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
                                                  label=f'fake_{1 + i_generator_run}')
                 visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
                 if opt.use_wandb:
@@ -256,12 +256,10 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
 #########################################################################################
 
-def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
-    if agents_vecs.ndim == 1:
-        agents_vecs = agents_vecs.unsqueeze(0)
+def get_wandb_image(model, conditioning, agents_vecs, opt, label='real_agents'):
     assert agents_vecs.ndim == 2  # [n_agents x feat_dim]
     real_map = conditioning['map_feat']
-    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
+    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, opt)
     img = visualize_scene_feat(agents_feat_dicts, real_map)
     pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
     caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
