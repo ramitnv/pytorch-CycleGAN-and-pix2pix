@@ -67,7 +67,7 @@ class PointNet(nn.Module):
     def forward(self, in_set):
         """'
              each layer the function that operates on each element in the set x is
-            f(x) = ReLu(A x + B * (sum over all non x elements) )
+            f(elem y) = ReLu(A y + B * (sum over all non y elements) )
             where A and B are the same for all elements, and are layer dependent.
             After that the elements are aggregated by max-pool
              and finally  a linear layer gives the output
@@ -76,24 +76,26 @@ class PointNet(nn.Module):
 
         """
 
-        h = in_set
-        n_elements = in_set.shape[-2]
+        h = in_set # [batch_size x n_elements x feat_dim]
+        batch_size = h.shape[0]
+        n_elements = h.shape[1]
+        feat_dim = h.shape[2]
         for i_layer in range(self.n_layers - 1):
             linearA = self.linearA[i_layer]
             linearB = self.linearB[i_layer]
-            pre_layer_sum = h.sum(dim=-2)
-            h_new_lst = []
-            for i_elem in range(n_elements):
-                h_elem = h[i_elem]
-                sum_without_elem = pre_layer_sum - h_elem
-                h_new = linearA(h_elem) + linearB(sum_without_elem)
-                h_new_lst.append(h_new)
-            h = torch.stack(h_new_lst)
+            # find for each element coord now yje the sum over all elements in its set
+            h_sum = h.sum(dim=-2)
+            h_sum = h_sum.repeat(n_elements, 1, 1)
+            h_sum = torch.permute(h_sum, (1, 0, 2))
+            sum_without_elem = h_sum - h
+            h = torch.reshape(h, (batch_size*n_elements, -1)) # we run the same linear transform on each elem in each sample
+            sum_without_elem = torch.reshape(sum_without_elem, (batch_size*n_elements, -1))
+            h_new = linearA(h) + linearB(sum_without_elem)
+            h = torch.reshape(h_new, (batch_size, n_elements, -1))
             if self.use_layer_norm:
                 h = self.layer_normalizer(h)
             h = F.relu(h)
         # apply permutation invariant aggregation over all elements
-
         if self.point_net_aggregate_func == 'max':
             h = h.max(dim=-2)
         elif self.point_net_aggregate_func == 'sum':

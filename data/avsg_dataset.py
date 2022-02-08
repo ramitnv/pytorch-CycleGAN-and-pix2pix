@@ -11,93 +11,21 @@ You need to implement the following functions:
     -- <__getitem__>: Return a data point and its metadata information.
     -- <__len__>: Return the number of images.
 """
+
 import pickle
 import numpy as np
-import torch
 from data.base_dataset import BaseDataset
+from pathlib import Path
+import sys
+import pathlib
+import h5py
+import torch
+from data.avsg_transforms import SelectAgents, PreprocessSceneData, ReadAgentsVecs
 
-#########################################################################################
-
-def agents_feat_dicts_to_vecs(agents_feat_dicts, opt):
-    dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
-    assert opt.agent_feat_vec_coord_labels == ['centroid_x', 'centroid_y', 'yaw_cos', 'yaw_sin',
-                                               'extent_length', 'extent_width', 'speed',
-                                               'is_CAR', 'is_CYCLIST', 'is_PEDESTRIAN']
-    agents_feat_vecs = []
-    for agent_dict in agents_feat_dicts:
-        agent_feat_vec = torch.zeros(dim_agent_feat_vec, device=opt.device)
-        agent_feat_vec[0] = agent_dict['centroid'][0]
-        agent_feat_vec[1] = agent_dict['centroid'][1]
-        agent_feat_vec[2] = np.cos(agent_dict['yaw'])
-        agent_feat_vec[3] = np.sin(agent_dict['yaw'])
-        agent_feat_vec[4] = float(agent_dict['extent'][0])
-        agent_feat_vec[5] = float(agent_dict['extent'][1])
-        agent_feat_vec[6] = float(agent_dict['speed'])
-        # agent type ['CAR', 'CYCLIST', 'PEDESTRIAN'] is represented in one-hot encoding
-        agent_feat_vec[7] = agent_dict['agent_label_id'] == 0
-        agent_feat_vec[8] = agent_dict['agent_label_id'] == 1
-        agent_feat_vec[9] = agent_dict['agent_label_id'] == 2
-        assert agent_feat_vec[7:].sum() == 1
-        agents_feat_vecs.append(agent_feat_vec)
-    agents_feat_vecs = torch.stack(agents_feat_vecs)
-    return agents_feat_vecs
-
-
-#########################################################################################
-#########################################################################################
-
-
-def select_actors_from_scene(agents_feat_dicts, opt):
-    # Take the max_num_agents closest to ego, and shuffle their order
-    max_num_agents = opt.max_num_agents
-
-    actors_dists_to_ego = [np.linalg.norm(agent_dict['centroid'][:]) for agent_dict in agents_feat_dicts]
-
-    agents_dists_order = np.argsort(actors_dists_to_ego)
-
-    inds = agents_dists_order[:max_num_agents]  # take the closest agent to the ego
-    np.random.shuffle(inds)  # shuffle so that the ego won't always be first
-
-    return inds
-
-
-#########################################################################################
-
-def avsg_data_collate(batch, opt):
-    c_batch = dict()
-    batch_size = len(batch)
-    dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
-    n_actors_in_scene = []
-    agent_inds_per_scene = []
-    for i_scene, samp in enumerate(batch):
-        inds = select_actors_from_scene(samp['agents_feat'], opt)
-        agent_inds_per_scene.append(inds)
-        n_actors_in_scene.append(len(inds))
-
-    max_n_actors = max(n_actors_in_scene)
-    c_batch['agents_feat'] = torch.zeros((batch_size, max_n_actors, dim_agent_feat_vec), device=opt.device)
-    for i_scene, samp in enumerate(batch):
-        agents_feat_dicts = samp['agents_feat']
-        inds = agent_inds_per_scene[i_scene]
-        agents_feat_vecs = agents_feat_dicts_to_vecs([agents_feat_dicts[i] for i in inds], opt)
-        c_batch['agents_feat'][i_scene, :agents_feat_vecs.shape[0], :] = agents_feat_vecs
-
-    c_batch['n_actors_in_scene'] = n_actors_in_scene
-    c_batch['map_feat'] = dict()
-    for poly_type in opt.polygon_name_order:
-        max_n_elem = max([len(x['map_feat'][poly_type]) for x in batch])
-        max_n_points = 0
-        for i_scene, samp in enumerate(batch):
-            for i_elem, elem_points in enumerate(samp['map_feat'][poly_type]):
-                max_n_points = max(max_n_points, len(elem_points))
-        c_batch['map_feat'][poly_type] = torch.zeros((batch_size, max_n_elem, max_n_points, 2), device=opt.device)
-        c_batch['map_feat'][poly_type + '_valid'] = torch.zeros((batch_size, max_n_elem, max_n_points),
-                                                                device=opt.device, dtype=torch.bool)
-        for i_scene, samp in enumerate(batch):
-            for i_elem, elem_points in enumerate(samp['map_feat'][poly_type]):
-                c_batch['map_feat'][poly_type][i_scene, i_elem, :elem_points.shape[0], :] = elem_points
-                c_batch['map_feat'][poly_type + '_valid'][i_scene, i_elem, :elem_points.shape[0]] = True
-    return c_batch
+is_windows = hasattr(sys, 'getwindowsversion')
+if is_windows:
+    temp = pathlib.PosixPath
+    pathlib.PosixPath = pathlib.WindowsPath
 
 
 #########################################################################################
@@ -117,10 +45,38 @@ class AvsgDataset(BaseDataset):
         Returns:
             the modified parser.
         """
-        # parser.add_argument('--new_dataset_option', type=float, default=1.0, help='new dataset option')
-        parser.set_defaults(max_dataset_size=float("inf"))  # specify dataset-specific default values
+
+        # ~~~~  Agents features
+        # parser.add_argument('--agent_feat_vec_coord_labels',
+        #                     default=['centroid_x',  # [0]  Real number
+        #                              'centroid_y',  # [1]  Real number
+        #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+        #                              'extent_length',  # [4] Real positive
+        #                              'extent_width',  # [5] Real positive
+        #                              'speed',  # [6] Real non-negative
+        #                              'is_CAR',  # [7] 0 or 1
+        #                              'is_CYCLIST',  # [8] 0 or 1
+        #                              'is_PEDESTRIAN',  # [9]  0 or 1
+        #                              ],
+        #                     type=list)
+        parser.add_argument('--agent_feat_vec_coord_labels',
+                            default=['centroid_x',  # [0]  Real number
+                                     'centroid_y',  # [1]  Real number
+                                     'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+                                     'speed',  # [4] Real non-negative
+                                     ],
+                            type=list)
+        # This agent extent is used (instead of being loaded from data)  if  agent_feat_vec_coord_labels
+        # does not include extent_length and extent_width features
+        parser.add_argument('--default_agent_extent_length', type=float, default=4.)  # [m]
+        parser.add_argument('--default_agent_extent_width', type=float, default=1.5)  # [m]
+
+        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
         return parser
 
+    #########################################################################################
     def __init__(self, opt, data_path):
         """Initialize this dataset class.
 
@@ -134,19 +90,22 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
-        with open(data_path, 'rb') as fid:
-            self.dataset = pickle.loads(fid.read())
+        self.data_path = data_path
+        self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
+        info_file_path = Path(data_path, 'info').with_suffix('.pkl')
+        with info_file_path.open('rb') as fid:
+            dataset_info = pickle.load(fid)
+            self.dataset_props = dataset_info['dataset_props']
+            self.saved_mats_info = dataset_info['saved_mats_info']
+            self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
-            for k, v in self.dataset.items():
-                if len(v) > opt.max_dataset_size:
-                    print(f"Field {k} is truncated from {len(v)} to {opt.max_dataset_size}")
-                    self.dataset[k] = self.dataset[k][:opt.max_dataset_size]
+            print(f"Total number of scenes: {self.n_scenes}")
+        opt.polygon_types = self.dataset_props['polygon_types']
+        opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
+        opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
+        self.transforms = [SelectAgents(opt), ReadAgentsVecs(opt, self.dataset_props), PreprocessSceneData(opt)]
 
-        # get the image paths of your dataset;
-        # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function
-        # self.transform = get_transform(opt)
-        self.transform = []
-
+    #########################################################################################
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -162,14 +121,37 @@ class AvsgDataset(BaseDataset):
         Step 3: convert your data to a PyTorch tensor. You can use helper functions such as self.transform. e.g., data = self.transform(image)
         Step 4: return a data point as a dictionary.
         """
-        agents_feat = self.dataset['agents_feat'][index]
-        map_feat = self.dataset['map_feat'][index]
+        dataset_props = self.dataset_props
+        saved_mats_info = self.saved_mats_info
+        agents_feat = {}
+        map_feat = {}
+        file_path = Path(self.data_path, 'data').with_suffix('.h5')
+        with h5py.File(file_path, 'r') as h5f:
+            for mat_name, mat_info in saved_mats_info.items():
+                mat_sample = np.array(h5f[mat_name][index])
+                mat_sample = torch.from_numpy(mat_sample).to(device=self.device)
+                if mat_info['entity'] == 'map':
+                    map_feat[mat_name] = mat_sample
+                else:
+                    agents_feat[mat_name] = mat_sample
+        sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
+        for fn in self.transforms:
+            sample = fn(sample)
 
-        return {'agents_feat': agents_feat, 'map_feat': map_feat}
+        # ---------  Sanity check -----------
+        # should be at least 0.999 since, we have sin(yaw) and cos(yaw) as features
+        agents_feat_vecs = sample['agents_feat_vecs']
+        n_agents_in_scene = sample['conditioning']['n_agents_in_scene']
+        assert torch.all(
+            torch.sum(torch.abs(agents_feat_vecs[:n_agents_in_scene]), dim=1)) > 0.999
+        # ---------------------------------
+
+        return sample
+
+    ########################################################################################
 
     def __len__(self):
         """Return the total number of scenes."""
-        return len(self.dataset['map_feat'])
+        return self.n_scenes
 
 #########################################################################################
-

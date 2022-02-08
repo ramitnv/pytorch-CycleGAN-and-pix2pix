@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from data.data_func import get_next_batch_cyclic
 from util.util import append_to_field, num_to_str, to_num
-from avsg_utils import agents_feat_vecs_to_dicts, pre_process_scene_data, get_agents_descriptions, \
+from data.avsg_utils import agents_feat_vecs_to_dicts, get_agents_descriptions, \
     get_single_conditioning_from_batch
 from util.avsg_visualization_utils import visualize_scene_feat
 from . import util, html
@@ -79,7 +79,8 @@ class Visualizer:
         metrics['train']['D'] = model.train_log_metrics_D
 
         val_batch = get_next_batch_cyclic(val_data_gen)
-        val_real_actors, val_conditioning = pre_process_scene_data(val_batch, opt)
+        val_conditioning, val_real_actors = val_batch['conditioning'], val_batch['agents_feat_vecs']
+
         _, metrics['val']['G'] = model.get_G_losses(opt, val_real_actors, val_conditioning)
         _, metrics['val']['D'] = model.get_D_losses(opt, val_real_actors, val_conditioning)
 
@@ -217,7 +218,8 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
     validation_batch = get_next_batch_cyclic(val_data_gen)
-    val_real_actors, val_conditioning = pre_process_scene_data(validation_batch, opt)
+    val_conditioning, val_real_actors = validation_batch['conditioning'], validation_batch['agents_feat_vecs']
+
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
@@ -229,20 +231,20 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
         for i_map in range(vis_n_maps):
             # take data of current scene:
-            real_agents_vecs = real_agents_vecs_batch[i_map]
+            real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
             log_label = f"{dataset_name}_iter_{i + 1}_map_{i_map + 1}"
-            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, label='real')
+            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real')
             visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
 
             for i_generator_run in range(vis_n_generator_runs):
-                fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
+                fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
-                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs,
+                img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
                                                  label=f'fake_{1 + i_generator_run}')
                 visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
                 if opt.use_wandb:
@@ -254,13 +256,11 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
 #########################################################################################
 
-def get_wandb_image(model, conditioning, agents_vecs, label='real_agents'):
-    if agents_vecs.ndim == 1:
-        agents_vecs = agents_vecs.unsqueeze(0)
-    assert agents_vecs.ndim == 2  # [n_agents x feat_dim]
-    real_map = conditioning['map_feat']
-    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs)
-    img = visualize_scene_feat(agents_feat_dicts, real_map)
+def get_wandb_image(model, conditioning, agents_vecs, opt, label='real_agents'):
+    # change data to format used for the plot function:
+    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, opt)
+    real_map = {k: v[0].detach().cpu().numpy() for k, v in conditioning['map_feat'].items()}
+    img = visualize_scene_feat(agents_feat_dicts, real_map, opt)
     pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
     caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
     caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))

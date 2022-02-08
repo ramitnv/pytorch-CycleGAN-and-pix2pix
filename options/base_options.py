@@ -25,8 +25,8 @@ class BaseOptions:
         """Define the common options that are used in both training and test."""
         # basic parameters
         parser.add_argument('--name', type=str, default='experiment_name',  help='name of the experiment')
-        parser.add_argument('--data_path_train', type=str, default='datasets/avsg_data/l5kit_train.pkl', help='path to train data')
-        parser.add_argument('--data_path_val', type=str, default='datasets/avsg_data/l5kit_sample.pkl', help='Path for validation dataset file')
+        parser.add_argument('--data_path_train', type=str, default='datasets/avsg_data/l5kit_sample', help='path to train data dir')
+        parser.add_argument('--data_path_val', type=str, default='datasets/avsg_data/l5kit_sample', help='Path for validation dataset dir')
         parser.add_argument('--use_wandb', action='store_true', help='use wandb')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
@@ -50,8 +50,9 @@ class BaseOptions:
         parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 
         parser.add_argument('--num_threads', default=0, type=int, help='# threads for loading data') # threads for loading data, can increase to 4 for faster run if no mem issues
-        parser.add_argument('--max_dataset_size', type=int, default=float("inf"),
-                            help='Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.')
+
+        # parser.add_argument('--max_dataset_size', type=int, default=float("inf"),
+        #                     help='Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.')
 
         # additional parameters
         parser.add_argument('--load_iter', type=int, default='0',

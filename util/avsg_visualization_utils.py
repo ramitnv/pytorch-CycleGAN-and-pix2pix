@@ -11,38 +11,67 @@ plt.rcParams['savefig.dpi'] = 300
 ######################################################################
 
 
-def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', is_closed=False,
-                   linewidth=1):
-    assert elem.ndim == 2
-    x = elem[:, 0].detach().cpu()
-    y = elem[:, 1].detach().cpu()
-    if i_elem > 0:
-        label = None
-    if is_closed:
+def plot_poly_elems(ax, elems_d,  facecolor='0.4', alpha=0.3, edgecolor='black', label=None, is_closed=False, linewidth=1):
+    elems_valid = elems_d['elems_valid']
+    n_points_per_elem = elems_d['n_points_per_elem']
+    elems_points = elems_d['elems_points']
+
+    first_plt = True
+    n_elem = elems_valid.shape[0]
+    for i_elem in range(n_elem):
+        if not elems_valid[i_elem]:
+            continue
+        x = elems_points[i_elem, :n_points_per_elem[i_elem], 0]
+        y = elems_points[i_elem, :n_points_per_elem[i_elem], 1]
+        if first_plt:
+            first_plt = False
+        else:
+            label = None
+        if is_closed:
+            ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
+        else:
+            ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
+
+
+##############################################################################################
+
+
+def plot_lanes(ax, l_elems_d, r_elems_d, facecolor='0.4', alpha=0.3,
+               edgecolor='black', label='', linewidth=1):
+
+
+    l_elems_valid = l_elems_d['elems_valid']
+    l_n_points_per_elem = l_elems_d['n_points_per_elem']
+    l_elems_points = l_elems_d['elems_points']
+    r_elems_valid = r_elems_d['elems_valid']
+    r_n_points_per_elem = r_elems_d['n_points_per_elem']
+    r_elems_points = r_elems_d['elems_points']
+
+    # Print road area in between lanes
+    first_plt = True
+    n_elems = l_elems_valid.shape[0]
+    for i_elem in range(n_elems):
+        if not (l_elems_valid[i_elem] and r_elems_valid[i_elem]):
+            continue
+        n_left_points = l_n_points_per_elem[i_elem]
+        n_right_points = r_n_points_per_elem[i_elem]
+        x_left = l_elems_points[i_elem, :n_left_points, 0]
+        y_left = l_elems_points[i_elem, :n_left_points, 1]
+        x_right = r_elems_points[i_elem, :n_right_points, 0]
+        y_right = r_elems_points[i_elem, :n_right_points, 1]
+        x = np.concatenate((x_left, x_right[::-1]))
+        y = np.concatenate((y_left, y_right[::-1]))
+        if first_plt:
+            first_plt = False
+        else:
+            label = None
         ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-    else:
-        ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
 
 
 ##############################################################################################
 
 
-def plot_lanes(ax, left_lanes, right_lanes, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
-    # assert len(left_lanes) == len(right_lanes)
-    assert left_lanes.ndim == right_lanes.ndim == 2
-    if i_elem > 0:
-        label = None
-    x_left = make_tensor_1d(left_lanes[:, 0])
-    y_left = make_tensor_1d(left_lanes[:, 1])
-    x_right = make_tensor_1d(right_lanes[:, 0])
-    y_right = make_tensor_1d(right_lanes[:, 1])
-    x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
-    y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
-    ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-
-##############################################################################################
-
-def plot_rectangles(ax, centroids, extents, yaws, label, facecolor, alpha=0.7, edgecolor='black'):
+def plot_rectangles(ax, centroids, extents, yaws, label='car', facecolor='skyblue', alpha=0.4, edgecolor='skyblue'):
     n_elems = len(centroids)
     first_plt = True
     for i in range(n_elems):
@@ -64,45 +93,41 @@ def plot_rectangles(ax, centroids, extents, yaws, label, facecolor, alpha=0.7, e
 
 
 ##############################################################################################
-
-
-def visualize_scene_feat(agents_feat, map_feat):
-    centroids = np.stack([af['centroid'] for af in agents_feat])
-    yaws = np.stack([af['yaw'] for af in agents_feat])
-    speed = np.stack([af['speed'] for af in agents_feat])
-    # print('agents types: ', [af['agent_label_id'] for af in agents_feat])
-    X = centroids[:, 0]
-    Y = centroids[:, 1]
-    U = speed * np.cos(yaws)
-    V = speed * np.sin(yaws)
-
+def visualize_scene_feat(agents_feat_s, real_map, opt):
+    map_points_s = real_map['map_elems_points']
+    map_elems_availability_s = real_map['map_elems_exists']
+    map_n_points_orig_s = real_map['map_elems_n_points_orig']
+    polygon_types = opt.polygon_types
+    closed_polygon_types = opt.closed_polygon_types
+    centroids = [af['centroid'] for af in agents_feat_s]
+    yaws = [af['yaw'] for af in agents_feat_s]
+    # print('agents centroids: ', centroids)
+    # print('agents yaws: ', yaws)
+    # print('agents speed: ', [af['speed'] for af in agents_feat_s])
+    # print('agents types: ', [af['agent_label_id'] for af in agents_feat_s])
+    X = [p[0] for p in centroids]
+    Y = [p[1] for p in centroids]
+    U = [af['speed'] * np.cos(af['yaw']) for af in agents_feat_s]
+    V = [af['speed'] * np.sin(af['yaw']) for af in agents_feat_s]
     fig, ax = plt.subplots()
-    plt.ioff()  # https://www.delftstack.com/howto/matplotlib/how-to-save-plots-as-an-image-file-without-displaying-in-matplotlib/#avoid-display-with-ioff-method
-
-    n_valid_lane_points = torch.min(map_feat['lanes_left_valid'].sum(dim=-1), map_feat['lanes_right_valid'].sum(dim=-1))
-    for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
-        plot_lanes(ax, map_feat['lanes_left'][i_elem][:n_valid_pnts], map_feat['lanes_right'][i_elem][:n_valid_pnts],
-                   i_elem, facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
-
-    n_valid_lane_points = map_feat['lanes_mid_valid'].sum(dim=-1)
-    for i_elem, n_valid_pnts in enumerate(n_valid_lane_points):
-        plot_poly_elem(ax, map_feat['lanes_mid'][i_elem][:n_valid_pnts], i_elem,
-                       facecolor='lime', alpha=0.4, edgecolor='lime', label='Lanes mid', is_closed=False, linewidth=1)
-
-    n_valid_cw_points = map_feat['crosswalks_valid'].sum(dim=-1)
-
-    for i_elem, n_valid_pnts in enumerate(n_valid_cw_points):
-        plot_poly_elem(ax, map_feat['crosswalks'][i_elem][:n_valid_pnts], i_elem,
-                       facecolor='orange', alpha=0.3, edgecolor='orange', label='Crosswalks', is_closed=True)
-
-    n_agents = len(agents_feat)
-    if n_agents > 0:
-        extents = [af['extent'] for af in agents_feat]
-        plot_rectangles(ax, centroids[1:], extents[1:], yaws[1:], label='non-ego', facecolor='saddlebrown')
-        plot_rectangles(ax, [centroids[0]], [extents[0]], [yaws[0]], label='ego', facecolor='red')
-        valid = speed > 1e-4
-        if valid.any():
-            ax.quiver(X[valid], Y[valid], U[valid], V[valid], units='xy', color='black', width=0.5)
+    plot_props = {'lanes_mid': ('lime', 0.4), 'lanes_left': ('black', 0.3), 'lanes_right': ('black', 0.3),
+                  'crosswalks': ('orange', 0.4)}
+    pd = {}
+    for i_type, poly_type in enumerate(polygon_types):
+        pd[poly_type] = {}
+        pd[poly_type]['elems_valid'] = map_elems_availability_s[i_type]
+        pd[poly_type]['n_points_per_elem'] = map_n_points_orig_s[i_type]
+        pd[poly_type]['elems_points'] = map_points_s[i_type]
+        plot_poly_elems(ax, pd[poly_type],
+                        facecolor=plot_props[poly_type][0], alpha=plot_props[poly_type][1],
+                        edgecolor=plot_props[poly_type][0], label=poly_type,
+                        is_closed=poly_type in closed_polygon_types, linewidth=1)
+    plot_lanes(ax, pd['lanes_left'], pd['lanes_right'], facecolor='grey', alpha=0.3, edgecolor='black', label='Lanes')
+    extents = [af['extent'] for af in agents_feat_s]
+    plot_rectangles(ax, centroids[1:], extents[1:], yaws[1:])
+    plot_rectangles(ax, [centroids[0]], [extents[0]], [yaws[0]], label='ego', facecolor='red', edgecolor='red')
+    ax.quiver(X[1:], Y[1:], U[1:], V[1:], units='xy', color='b', label='Non-ego', width=0.5)
+    ax.quiver(X[0], Y[0], U[0], V[0], units='xy', color='r', label='Ego', width=0.5)
     ax.grid()
     plt.legend()
     canvas = plt.gca().figure.canvas
