@@ -101,10 +101,10 @@ def visualize_scene_feat(agents_feat_s, real_map, opt):
     closed_polygon_types = opt.closed_polygon_types
     centroids = [af['centroid'] for af in agents_feat_s]
     yaws = [af['yaw'] for af in agents_feat_s]
-    print('agents centroids: ', centroids)
-    print('agents yaws: ', yaws)
-    print('agents speed: ', [af['speed'] for af in agents_feat_s])
-    print('agents types: ', [af['agent_label_id'] for af in agents_feat_s])
+    # print('agents centroids: ', centroids)
+    # print('agents yaws: ', yaws)
+    # print('agents speed: ', [af['speed'] for af in agents_feat_s])
+    # print('agents types: ', [af['agent_label_id'] for af in agents_feat_s])
     X = [p[0] for p in centroids]
     Y = [p[1] for p in centroids]
     U = [af['speed'] * np.cos(af['yaw']) for af in agents_feat_s]
