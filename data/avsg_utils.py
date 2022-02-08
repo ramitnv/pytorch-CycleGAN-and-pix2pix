@@ -16,7 +16,9 @@ def get_single_conditioning_from_batch(conditioning_batch, i_map):
 #########################################################################################
 
 def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
-    assert agents_feat_vecs.ndim == 2
+    assert agents_feat_vecs.ndim == 3  # [n_scenes==1 x max_n_agents x feat_dim]
+    assert agents_feat_vecs.shape[0] == 1
+    n_agents = agents_feat_vecs.shape[1]
     # code now supports only this feature format:
     assert opt.agent_feat_vec_coord_labels == [
         'centroid_x',  # [0]  Real number
@@ -26,17 +28,14 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
         'speed',  # [4] Real non-negative
     ]
     agents_feat_dicts = []
-    n_agents = agents_feat_vecs.shape[0]
     for i_agent in range(n_agents):
-        agent_feat_vec = agents_feat_vecs[i_agent]
+        agent_feat_vec = agents_feat_vecs[0, i_agent].detach().cpu().numpy()
         agent_feat_dict = ({'centroid': agent_feat_vec[:2],
-                            'yaw': torch.atan2(agent_feat_vec[3], agent_feat_vec[2]),
+                            'yaw': np.arctan2(agent_feat_vec[3], agent_feat_vec[2]),
                             'speed': agent_feat_vec[4],
-                            'extent': torch.Tensor([opt.default_agent_extent_length, opt.default_agent_extent_width]),
-                            'agent_label_id': torch.Tensor(0)  # CAR
+                            'extent': np.array([opt.default_agent_extent_length, opt.default_agent_extent_width]),
+                            'agent_label_id': 0  # CAR
                             })
-        for key in agent_feat_dict.keys():
-            agent_feat_dict[key] = agent_feat_dict[key].detach().cpu().numpy()
         agents_feat_dicts.append(agent_feat_dict)
     return agents_feat_dicts
 

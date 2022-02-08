@@ -231,7 +231,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
         for i_map in range(vis_n_maps):
             # take data of current scene:
-            real_agents_vecs = real_agents_vecs_batch[i_map]
+            real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
