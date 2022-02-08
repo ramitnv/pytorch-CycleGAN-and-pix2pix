@@ -242,7 +242,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
                 wandb_logs[log_label] = [wandb_img]
 
             for i_generator_run in range(vis_n_generator_runs):
-                fake_agents_vecs = model.netG(conditioning).detach().squeeze()  # detach since we don't backpropp
+                fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
                                                  label=f'fake_{1 + i_generator_run}')
