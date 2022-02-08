@@ -15,7 +15,7 @@ class AvsgCheckDiscrModel(BaseModel):
 
 
         # ~~~~  Map features
-        parser.add_argument('--polygon_name_order', type=list,
+        parser.add_argument('--polygon_types', type=list,
                             default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
         parser.add_argument('--closed_polygon_types', type=list,
                             default=['crosswalks'], help='')
@@ -101,7 +101,7 @@ class AvsgCheckDiscrModel(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
         opt.device = self.device
-        self.polygon_name_order = opt.polygon_name_order
+        self.polygon_types = opt.polygon_types
         self.task_name = opt.task_name
         self.netD = define_D(opt, self.gpu_ids)
         self.loss_criterion = torch.nn.MSELoss()

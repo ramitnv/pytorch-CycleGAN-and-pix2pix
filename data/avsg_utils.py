@@ -63,7 +63,7 @@ def get_agents_descriptions(agents_feat_dicts):
 
 #########################################################################################
 #
-# def calc_agents_feats_stats(dataset, agent_feat_vec_coord_labels, device, num_agents, polygon_name_order):
+# def calc_agents_feats_stats(dataset, agent_feat_vec_coord_labels, device, num_agents, polygon_types):
 #     ##### Find data normalization parameters
 #
 #     dim_agent_feat_vec = len(agent_feat_vec_coord_labels)

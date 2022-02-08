@@ -11,38 +11,65 @@ plt.rcParams['savefig.dpi'] = 300
 ######################################################################
 
 
-def plot_poly_elem(ax, elem, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', is_closed=False,
-                   linewidth=1):
-    assert elem.ndim == 2
-    x = elem[:, 0].detach().cpu()
-    y = elem[:, 1].detach().cpu()
-    if i_elem > 0:
-        label = None
-    if is_closed:
+def plot_poly_elems(ax, elems_d,  facecolor='0.4', alpha=0.3, edgecolor='black', label=None, is_closed=False, linewidth=1):
+    elems_valid = elems_d['elems_valid']
+    n_points_per_elem = elems_d['n_points_per_elem']
+    elems_points = elems_d['elems_points']
+
+    first_plt = True
+    n_elem = elems_valid.shape[0]
+    for i_elem in range(n_elem):
+        if not elems_valid[i_elem]:
+            continue
+        x = elems_points[i_elem, :n_points_per_elem[i_elem], 0]
+        y = elems_points[i_elem, :n_points_per_elem[i_elem], 1]
+        if first_plt:
+            first_plt = False
+        else:
+            label = None
+        if is_closed:
+            ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
+        else:
+            ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
+
+
+##############################################################################################
+
+
+def plot_lanes(ax, l_elems_d, r_elems_d, facecolor='0.4', alpha=0.3,
+               edgecolor='black', label='', linewidth=1):
+
+
+    l_elems_valid = l_elems_d['elems_valid']
+    l_n_points_per_elem = l_elems_d['n_points_per_elem']
+    l_elems_points = l_elems_d['elems_points']
+    r_elems_valid = r_elems_d['elems_valid']
+    r_n_points_per_elem = r_elems_d['n_points_per_elem']
+    r_elems_points = r_elems_d['elems_points']
+
+    # Print road area in between lanes
+    first_plt = True
+    n_elems = l_elems_valid.shape[0]
+    for i_elem in range(n_elems):
+        if not (l_elems_valid[i_elem] and r_elems_valid[i_elem]):
+            continue
+        x_left = l_elems_points[i_elem, :l_n_points_per_elem[i_elem], 0]
+        y_left = l_elems_points[i_elem, :l_n_points_per_elem[i_elem], 1]
+        x_right = r_elems_points[i_elem, :r_n_points_per_elem[i_elem], 0]
+        y_right = r_elems_points[i_elem, :r_n_points_per_elem[i_elem], 1]
+        x = np.concatenate((x_left, x_right[::-1]))
+        y = np.concatenate((y_left, y_right[::-1]))
+        if first_plt:
+            first_plt = False
+        else:
+            label = None
         ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-    else:
-        ax.plot(x, y, alpha=alpha, color=edgecolor, linewidth=linewidth, label=label)
 
 
 ##############################################################################################
 
 
-def plot_lanes(ax, left_lanes, right_lanes, i_elem, facecolor='0.4', alpha=0.3, edgecolor='black', label='', linewidth=1):
-    # assert len(left_lanes) == len(right_lanes)
-    assert left_lanes.ndim == right_lanes.ndim == 2
-    if i_elem > 0:
-        label = None
-    x_left = make_tensor_1d(left_lanes[:, 0])
-    y_left = make_tensor_1d(left_lanes[:, 1])
-    x_right = make_tensor_1d(right_lanes[:, 0])
-    y_right = make_tensor_1d(right_lanes[:, 1])
-    x = torch.cat((x_left, torch.flip(x_right, [0]))).detach().cpu()
-    y = torch.cat((y_left, torch.flip(y_right, [0]))).detach().cpu()
-    ax.fill(x, y, facecolor=facecolor, alpha=alpha, edgecolor=edgecolor, linewidth=linewidth, label=label)
-
-##############################################################################################
-
-def plot_rectangles(ax, centroids, extents, yaws, label, facecolor, alpha=0.7, edgecolor='black'):
+def plot_rectangles(ax, centroids, extents, yaws, label='car', facecolor='skyblue', alpha=0.4, edgecolor='skyblue'):
     n_elems = len(centroids)
     first_plt = True
     for i in range(n_elems):
@@ -64,11 +91,9 @@ def plot_rectangles(ax, centroids, extents, yaws, label, facecolor, alpha=0.7, e
 
 
 ##############################################################################################
-
-
 def visualize_scene_feat(agents_feat_s, map_points_s, map_elems_availability_s, map_n_points_orig_s, opt):
     polygon_types = opt.polygon_types
-    closed_polygon_types =  opt.closed_polygon_types
+    closed_polygon_types = opt.closed_polygon_types
 
     centroids = [af['centroid'] for af in agents_feat_s]
     yaws = [af['yaw'] for af in agents_feat_s]

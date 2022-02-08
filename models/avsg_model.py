@@ -104,7 +104,7 @@ class AvsgModel(BaseModel):
         BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
         opt.device = self.device
         self.use_wandb = opt.use_wandb
-        self.polygon_name_order = opt.polygon_name_order
+        self.polygon_types = opt.polygon_types
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
 

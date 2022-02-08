@@ -81,7 +81,7 @@ class PreprocessSceneData(object):
         ]
         self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
         self.augmentation_type = opt.augmentation_type
-        self.polygon_name_order = opt.polygon_name_order
+        self.polygon_types = opt.polygon_types
 
     def __call__(self, sample):
 

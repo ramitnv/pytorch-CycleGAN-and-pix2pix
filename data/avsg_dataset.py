@@ -100,7 +100,7 @@ class AvsgDataset(BaseDataset):
             self.n_scenes = self.dataset_props['n_scenes']
             print('Loaded dataset file ', data_path)
             print(f"Total number of scenes: {self.n_scenes}")
-        opt.polygon_name_order = self.dataset_props['polygon_types']
+        opt.polygon_types = self.dataset_props['polygon_types']
         opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
         opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
         self.transforms = [SelectAgents(opt), ReadAgentsVecs(opt, self.dataset_props), PreprocessSceneData(opt)]

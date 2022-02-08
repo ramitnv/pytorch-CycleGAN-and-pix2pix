@@ -13,7 +13,7 @@ class AvsgCheckMapEncModel(BaseModel):
         parser.add_argument('--data_path_val', type=str, default='', help='Path for evaluation dataset file')
 
         # ~~~~  Map features
-        parser.add_argument('--polygon_name_order', type=list,
+        parser.add_argument('--polygon_types', type=list,
                             default=['lanes_mid', 'lanes_left', 'lanes_right', 'crosswalks'], help='')
         parser.add_argument('--closed_polygon_types', type=list,
                             default=['crosswalks'], help='')
@@ -89,7 +89,7 @@ class AvsgCheckMapEncModel(BaseModel):
         BaseModel.__init__(self, opt)
 
         opt.device = self.device
-        self.polygon_name_order = opt.polygon_name_order
+        self.polygon_types = opt.polygon_types
         self.map_enc = MapEncoder(opt)
         # out layer, in case of scalar regression:
         self.out_layer = torch.nn.Linear(in_features=opt.dim_latent_map, out_features=1, device=self.device)

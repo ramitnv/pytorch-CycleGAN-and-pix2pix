@@ -74,15 +74,15 @@ class MapEncoder(nn.Module):
     def __init__(self, opt):
         super(MapEncoder, self).__init__()
         self.device = opt.device
-        self.polygon_name_order = opt.polygon_name_order
+        self.polygon_types = opt.polygon_types
         self.closed_polygon_types = opt.closed_polygon_types
         self.dim_latent_polygon_elem = opt.dim_latent_polygon_elem
-        self.n_polygon_types = len(opt.polygon_name_order)
+        self.n_polygon_types = len(opt.polygon_types)
         self.dim_latent_polygon_type = opt.dim_latent_polygon_type
         self.dim_latent_map = opt.dim_latent_map
         self.poly_encoder = nn.ModuleDict()
         self.sets_aggregators = nn.ModuleDict()
-        for poly_type in self.polygon_name_order:
+        for poly_type in self.polygon_types:
             self.poly_encoder[poly_type] = PolygonEncoder(dim_latent=self.dim_latent_polygon_elem,
                                                           n_conv_layers=opt.n_conv_layers_polygon,
                                                           kernel_size=opt.kernel_size_conv_polygon,
@@ -106,7 +106,7 @@ class MapEncoder(nn.Module):
         batch_size = map_elems_points.shape[0]
         poly_types_latents = torch.zeros((batch_size, self.n_polygon_types, self.dim_latent_polygon_type)
                                          , device=self.device)
-        for i_poly_type, poly_type in enumerate(self.polygon_name_order):
+        for i_poly_type, poly_type in enumerate(self.polygon_types):
             # Get the latent embedding of all elements of this type of polygons:
             poly_encoder = self.poly_encoder[poly_type]
             poly_elems_points = map_elems_points[:, i_poly_type, :, :]  # [batch_size x n_points x 2 dims]
