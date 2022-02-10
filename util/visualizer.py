@@ -140,8 +140,8 @@ class Visualizer:
 
             loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
                             ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
-                            ('Lam*(G_Loss_Reconstruct)', "train/G/loss_G_reconstruct",
-                             opt.lamb_loss_G_reconstruct),
+                            ('Lam*(G_Loss_Feat_Match', "train/G/loss_G_feat_match",
+                             opt.lamb_loss_G_feat_match),
                             ('Lam*(Weights_Norm)', "train/G/loss_G_weights_norm",
                              opt.lamb_loss_G_weights_norm),
                             ]

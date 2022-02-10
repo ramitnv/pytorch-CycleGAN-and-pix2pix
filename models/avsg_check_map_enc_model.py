@@ -59,7 +59,7 @@ class AvsgCheckMapEncModel(BaseModel):
                 lr_decay_factor=0.9,  # if lr_policy==step',
                 num_threads=0,  # threads for loading data, can increase to 4 for faster run if no mem issues
             )
-            parser.add_argument('--lambda_reconstruct', type=float, default=100., help='weight for L1 loss')
+            parser.add_argument('--lambda_feat_match', type=float, default=100., help='weight for L1 loss')
             parser.add_argument('--lambda_gp', type=float, default=100., help='weight for gradient penalty in WGANGP')
 
             # ~~~~ general model settings

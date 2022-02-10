@@ -121,10 +121,10 @@ class AvsgModel(BaseModel):
             self.netD = define_D(opt, self.gpu_ids)
             # define loss functions
             self.criterionGAN = models.avsg_generator.GANLoss(opt.gan_mode).to(self.device)
-            if opt.reconstruct_loss_type == 'L1':
-                self.criterion_reconstruct = torch.nn.L1Loss()
-            elif opt.reconstruct_loss_type == 'MSE':
-                self.criterion_reconstruct = torch.nn.MSELoss()
+            if opt.feat_match_loss_type == 'L1':
+                self.criterion_feat_match = torch.nn.L1Loss()
+            elif opt.feat_match_loss_type == 'MSE':
+                self.criterion_feat_match = torch.nn.MSELoss()
             else:
                 raise NotImplementedError
             self.gan_mode = opt.gan_mode
@@ -199,23 +199,23 @@ class AvsgModel(BaseModel):
         # G aims to fool D to wrongly classify the fake sample (make D output "True")
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
-        if opt.lamb_loss_G_reconstruct > 0:
-            loss_G_reconstruct = self.criterion_reconstruct(fake_actors, real_actors)
+        if opt.lamb_loss_G_feat_match > 0:
+            loss_G_feat_match = self.criterion_feat_match(fake_actors, real_actors)
         else:
-            loss_G_reconstruct = None
+            loss_G_feat_match = None
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
         # combine losses
         reg_total = sum_regularization_terms(
-            [(opt.lamb_loss_G_reconstruct, loss_G_reconstruct),
+            [(opt.lamb_loss_G_feat_match, loss_G_feat_match),
              (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)])
 
         loss_G = loss_G_GAN + reg_total
 
         log_metrics = {"loss_G": loss_G,
                        "loss_G_GAN": loss_G_GAN,
-                       "loss_G_reconstruct": loss_G_reconstruct,
+                       "loss_G_feat_match": loss_G_feat_match,
                        "D_logit(fake)": d_out_for_fake,
                        "loss_G_weights_norm": loss_G_weights_norm}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
