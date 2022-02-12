@@ -136,7 +136,7 @@ class Visualizer:
                              ('Lam*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
                               opt.lamb_loss_D_grad_penalty))
                             ]
-            self.log_weighted_losses(loss_terms_D, 'D_Train_Losses_Weighted')
+            self.plot_weighted_loss_summary(loss_terms_D, 'D_Train_Losses_Weighted')
 
             loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
                             ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
@@ -145,18 +145,18 @@ class Visualizer:
                             ('Lam*(Weights_Norm)', "train/G/loss_G_weights_norm",
                              opt.lamb_loss_G_weights_norm),
                             ]
-            self.log_weighted_losses(loss_terms_G, 'G_Train_Losses_Weighted')
+            self.plot_weighted_loss_summary(loss_terms_G, 'G_Train_Losses_Weighted')
 
     # ==========================================================================
 
-    def log_weighted_losses(self, loss_terms, log_name):
+    def plot_weighted_loss_summary(self, loss_terms, log_name):
         iter_grid = np.array(self.records['i'])
         for t in loss_terms:
             if t[1] not in self.records.keys():
                 continue
             label = t[0]
             loss_seq = np.array(self.records[t[1]]) * t[2]
-            plt.plot(iter_grid, loss_seq, label=label)
+            plt.plot(iter_grid, loss_seq, label='summary/'+label)
         plt.legend()
         self.wandb_run.log({log_name: plt})
 
