@@ -174,8 +174,8 @@ class Visualizer:
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
-            visuals (OrderedDict) - - dictionary of images to display or save
-            epoch (int) - - the current epoch
+            visuals (OrderedDict) - - dictionary of images if len(self.gpu_ids) > 0 and torch.cuda.is_available(to display or save
+            epoch (int) - - the current epochכ
             save_result (bool) - - if save the current results to an HTML file
         """
         fig_index = i
