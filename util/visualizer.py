@@ -175,7 +175,7 @@ class Visualizer:
 
         Parameters:
             visuals (OrderedDict) - - dictionary of images if len(self.gpu_ids) > 0 and torch.cuda.is_available(to display or save
-            epoch (int) - - the current epochכ
+            epoch (int) - - the current epoch
             save_result (bool) - - if save the current results to an HTML file
         """
         fig_index = i
