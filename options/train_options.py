@@ -39,8 +39,8 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_decay_factor', type=float, default=0.1, help='multiply by this every lr_decay_iters iterations if lr_policy==step')
 
         parser.add_argument('--feat_match_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
-        parser.add_argument('--lamb_loss_G_feat_match', type=float, default=0, help='weight for feat_match_loss ')
-        parser.add_argument('--lamb_loss_D_grad_penalty', type=float, default=10., help='weight for gradient penalty in WGANGP')
+        parser.add_argument('--lamb_loss_G_feat_match', type=float, default=1e-3, help='weight for feat_match_loss ')
+        parser.add_argument('--lamb_loss_D_grad_penalty', type=float, default=1., help='weight for gradient penalty in WGANGP')
         parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius",
                             help=" None / Frobenius / L1 / Nuclear")
         parser.add_argument('--type_weights_norm_G', type=str, default="Frobenius",
@@ -52,7 +52,6 @@ class TrainOptions(BaseOptions):
                             help="The label of real samples, use value>0 for label smoothing")
         parser.add_argument('--target_fake_label', type=float, default=0.1,
                             help="The label of fake samples, use value<1 for label smoothing")
-
 
         self.isTrain = True
         return parser
