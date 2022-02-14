@@ -1,5 +1,5 @@
 
-# Environment installation:
+# Environment installation using conda:
 * Open terminal 
 * $ conda update conda
 * Go to main project directory 
