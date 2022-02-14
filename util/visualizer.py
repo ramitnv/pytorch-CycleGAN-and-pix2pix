@@ -101,7 +101,7 @@ class Visualizer:
             metrics[data_type]['G']['G_out_variability'] = feat_var_across_samples.mean().item()
 
         # print to console
-        message = '(' + ', '.join([f'{name}: {num_to_str(v)} ' for name, v in metrics['run'].items()]) + ')'
+        message = '(' + ', '.join([f'{name}: {num_to_str(v, perc=3)} ' for name, v in metrics['run'].items()]) + ')'
         for data_type in ['train', 'val']:
             for net_type in ['G', 'D']:
                 message += f'\n{data_type}: ' + ''.join([f'{name}: {num_to_str(v, perc=3)} '
