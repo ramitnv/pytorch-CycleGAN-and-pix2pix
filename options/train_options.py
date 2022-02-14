@@ -48,5 +48,11 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lamb_loss_D_weights_norm', type=float, default=1e-4, help=" ")
         parser.add_argument('--lamb_loss_G_weights_norm', type=float, default=0, help=" ")
 
+        parser.add_argument('--target_real_label', type=float, default=0.9,
+                            help="The label of real samples, use value>0 for label smoothing")
+        parser.add_argument('--target_fake_label', type=float, default=0.1,
+                            help="The label of fake samples, use value<1 for label smoothing")
+
+
         self.isTrain = True
         return parser

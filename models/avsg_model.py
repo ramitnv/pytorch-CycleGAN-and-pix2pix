@@ -21,7 +21,7 @@ import torch
 import models.avsg_generator
 from models.avsg_discriminator import cal_gradient_penalty
 from .avsg_discriminator import define_D
-from .avsg_generator import define_G
+from models.avsg_generator import define_G, GANLoss
 from .base_model import BaseModel
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 
@@ -120,7 +120,9 @@ class AvsgModel(BaseModel):
         if self.isTrain:
             self.netD = define_D(opt, self.gpu_ids)
             # define loss functions
-            self.criterionGAN = models.avsg_generator.GANLoss(opt.gan_mode).to(self.device)
+            self.criterionGAN = GANLoss(opt.gan_mode,
+                                        target_real_label=opt.target_real_label,
+                                        target_fake_label=opt.target_fake_label).to(self.device)
             if opt.feat_match_loss_type == 'L1':
                 self.criterion_feat_match = torch.nn.L1Loss()
             elif opt.feat_match_loss_type == 'MSE':

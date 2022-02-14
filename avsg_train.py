@@ -32,6 +32,7 @@ from models import create_model
 from options.train_options import TrainOptions
 from util.visualizer import Visualizer
 
+# -------------------------------------------------------------------
 if __name__ == '__main__':
     run_start_time = time.time()
     opt = TrainOptions().parse()  # get training options
@@ -43,7 +44,6 @@ if __name__ == '__main__':
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     model.train()
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
-
 
     start_time = time.time()
     for i in range(opt.n_iter):
