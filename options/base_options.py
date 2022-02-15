@@ -47,7 +47,7 @@ class BaseOptions:
         # dataset parameters
         parser.add_argument('--dataset_mode', type=str, default='avsg',
                             help='chooses how datasets are loaded.')
-        parser.add_argument('--batch_size', type=int, default=1024, help='input batch size')
+        parser.add_argument('--batch_size', type=int, default=512, help='input batch size')
 
         parser.add_argument('--num_threads', default=0, type=int, help='# threads for loading data') # threads for loading data, can increase to 4 for faster run if no mem issues
 
