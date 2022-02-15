@@ -64,5 +64,7 @@ class TrainOptions(BaseOptions):
 
         parser.add_argument('--latent_noise_trunc_stds', type=float, default=0.7)
 
+        parser.add_argument('--added_noise_std_for_D_in', type=float, default=0.1)
+
         self.isTrain = True
         return parser
