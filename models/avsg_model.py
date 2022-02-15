@@ -148,7 +148,7 @@ class AvsgModel(BaseModel):
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
         #########################################################################################
 
-    def get_D_losses(self, opt, real_actors, conditioning):
+    def get_D_losses(self, opt, real_agents, conditioning):
         """Calculate loss for the discriminator"""
 
         # we use conditional GANs; we need to feed both input and output to the discriminator
@@ -156,18 +156,27 @@ class AvsgModel(BaseModel):
 
         # Feed fake agents to discriminator and calculate its prediction loss
         fake_agents_detached = fake_agents.detach()  # stop backprop to the generator by detaching
+
+        # (optional) add noise to D's inputs, as a stabilization technique
+        if opt.added_noise_std_for_D_in > 0:
+            input_noise = torch.empty_like(real_agents)
+            torch.nn.init.trunc_normal_(input_noise, mean=0., std=opt.added_noise_std_for_D_in, a=-1., b=1.)
+            fake_agents_detached += input_noise
+            torch.nn.init.trunc_normal_(input_noise, mean=0., std=opt.added_noise_std_for_D_in, a=-1., b=1.)
+            real_agents += input_noise
+
         d_out_for_fake = self.netD(conditioning, fake_agents_detached)
 
         # the loss is 0 if D correctly classify as fake
         loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
         # Feed real (loaded from data) agents to discriminator and calculate its prediction loss
-        d_out_for_real = self.netD(conditioning, real_actors)
+        d_out_for_real = self.netD(conditioning, real_agents)
 
         # the loss is 0 if D correctly classify as not fake
         loss_D_classify_real = self.criterionGAN(prediction=d_out_for_real, target_is_real=True)
 
-        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_actors,
+        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_agents,
                                                    fake_agents_detached, self)
 
         loss_D_weights_norm = get_net_weights_norm(self.netD, opt.type_weights_norm_D)
@@ -191,7 +200,7 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def get_G_losses(self, opt, real_actors, conditioning):
+    def get_G_losses(self, opt, real_agents, conditioning):
         """Calculate loss terms for the generator"""
 
         fake_actors = self.netG(conditioning)
@@ -202,7 +211,7 @@ class AvsgModel(BaseModel):
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         if opt.lamb_loss_G_feat_match > 0:
-            loss_G_feat_match = self.criterion_feat_match(fake_actors, real_actors)
+            loss_G_feat_match = self.criterion_feat_match(fake_actors, real_agents)
         else:
             loss_G_feat_match = None
 
@@ -225,14 +234,14 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_discriminator(self, opt, real_actors, conditioning):
+    def optimize_discriminator(self, opt, real_agents, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.set_requires_grad(self.netG, False)  # disable backprop for G
         self.optimizer_D.zero_grad()  # set D's gradients to zero
-        loss_D, log_metrics_D = self.get_D_losses(opt, real_actors, conditioning)
+        loss_D, log_metrics_D = self.get_D_losses(opt, real_agents, conditioning)
         loss_D.backward()  # calculate gradients for D
         self.optimizer_D.step()  # update D's weights
         # Save for logging:
@@ -240,14 +249,14 @@ class AvsgModel(BaseModel):
 
     #########################################################################################
 
-    def optimize_generator(self, opt, real_actors, conditioning):
+    def optimize_generator(self, opt, real_agents, conditioning):
         """Update network weights; it will be called in every training iteration."""
 
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.set_requires_grad(self.netG, True)  # enable backprop for G
         self.optimizer_G.zero_grad()  # set G's gradients to zero
-        loss_G, log_metrics_G = self.get_G_losses(opt, real_actors, conditioning)
+        loss_G, log_metrics_G = self.get_G_losses(opt, real_agents, conditioning)
         loss_G.backward()  # calculate gradients for G
         self.optimizer_G.step()  # update G's weights
         # Save for logging:
