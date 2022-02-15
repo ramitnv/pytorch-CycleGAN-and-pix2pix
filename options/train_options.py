@@ -29,8 +29,8 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
         # training parameters
         parser.add_argument('--n_iter', type=int, default=50000, help='number of total iterations')
-        parser.add_argument('--n_steps_G', type=int, default=1, help='number of generator update steps per iteration')
-        parser.add_argument('--n_steps_D', type=int, default=2, help='number of generator update steps per iteration')
+        parser.add_argument('--n_steps_G', type=int, default=2, help='number of generator update steps per iteration')
+        parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
 
         parser.add_argument('--optimizer_type', type=str, default='Adam', help='SGD / Adam')
         parser.add_argument('--lr_G', type=float, default=0.002, help='initial learning rate for ADAM optimizer of G')
