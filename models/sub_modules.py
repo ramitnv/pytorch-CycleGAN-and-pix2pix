@@ -24,7 +24,7 @@ class MLP(nn.Module):
             modules_list.append(nn.Linear(layer_d_in, layer_d_out, bias=bias, device=self.device))
             if self.use_layer_norm:
                 modules_list.append(nn.LayerNorm(layer_d_out, device=self.device))
-            modules_list.append(nn.ReLU())
+            modules_list.append(nn.LeakyReLU())
         modules_list.append(nn.Linear(layer_dims[-2], d_out, bias=bias, device=self.device))
         self.net = nn.Sequential(*modules_list)
         self.layer_dims = layer_dims
@@ -94,7 +94,7 @@ class PointNet(nn.Module):
             h = torch.reshape(h_new, (batch_size, n_elements, -1))
             if self.use_layer_norm:
                 h = self.layer_normalizer(h)
-            h = F.relu(h)
+            h = F.leaky_relu(h)
         # apply permutation invariant aggregation over all elements
         if self.point_net_aggregate_func == 'max':
             h = h.max(dim=-2)

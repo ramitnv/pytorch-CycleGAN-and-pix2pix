@@ -52,7 +52,7 @@ class PolygonEncoder(nn.Module):
         # and finally sum the output - this is all in all - a shift-invariant operator
         for i_layer in range(self.n_conv_layers):
             h = self.conv_layers[i_layer](h)
-            h = F.relu(h)
+            h = F.leaky_relu(h)
         # reshape back:
         h = torch.reshape(h, (batch_size, n_elements_max, self.dim_latent, n_points)) # [batch_size, n_elements x out_channels  x n_points]
         # Sum all points (to get shift invariance):
