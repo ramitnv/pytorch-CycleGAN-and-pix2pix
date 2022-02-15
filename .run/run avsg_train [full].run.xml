@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="run avsg_train [full]" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="run train [full]" type="PythonConfigurationType" factoryName="Python">
     <module name="scene_gen" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -12,7 +12,7 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/avsg_train.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/train.py" />
     <option name="PARAMETERS" value="--name 2022_02_08  --data_path_train datasets/avsg_data/l5kit_train_full  --data_path_val datasets/avsg_data/l5kit_validation  --use_wandb" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="true" />
