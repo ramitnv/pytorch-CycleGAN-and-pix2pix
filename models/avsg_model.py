@@ -21,10 +21,10 @@ import torch
 import models.avsg_generator
 from models.avsg_discriminator import cal_gradient_penalty
 from .avsg_discriminator import define_D
-from models.avsg_generator import define_G, GANLoss
+from models.avsg_generator import define_G
+from .sub_modules import GANLoss
 from .base_model import BaseModel
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
-
 
 #########################################################################################
 
@@ -104,9 +104,6 @@ class AvsgModel(BaseModel):
         BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
         opt.device = self.device
         self.use_wandb = opt.use_wandb
-        self.polygon_types = opt.polygon_types
-        self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-        self.dim_agent_feat_vec = len(self.agent_feat_vec_coord_labels)
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -129,6 +126,7 @@ class AvsgModel(BaseModel):
                 self.criterion_feat_match = torch.nn.MSELoss()
             else:
                 raise NotImplementedError
+
             self.gan_mode = opt.gan_mode
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             if opt.optimizer_type == 'Adam':

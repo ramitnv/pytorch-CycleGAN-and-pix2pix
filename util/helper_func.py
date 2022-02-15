@@ -131,7 +131,7 @@ def init_weights(net, init_type='normal', init_gain=0.02):
 
 #########################################################################################
 
-def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
+def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=None):
     """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
     Parameters:
         net (network)      -- the network to be initialized
@@ -141,6 +141,8 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
     Return an initialized network.
     """
+    if gpu_ids is None:
+        gpu_ids = []
     if len(gpu_ids) > 0:
         assert (torch.cuda.is_available())
         net.to(gpu_ids[0])
@@ -150,7 +152,17 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 ##########################################################################################
-#
+
+def sum_regularization_terms(reg_losses):
+    weighted_terms = [lamb * loss for (lamb, loss) in reg_losses if loss is not None]
+    if not weighted_terms:
+        return 0.0
+    else:
+        return torch.stack(weighted_terms).sum()
+
+
+# #########################################################################################
+
 # def add_spectral_norm(m):
 #     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.Conv2d, nn.ConvTranspose2d)):
 #         return torch.nn.utils.parametrizations.spectral_norm(m)
@@ -180,30 +192,31 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 #########################################################################################
 
-def sum_regularization_terms(reg_losses):
-    weighted_terms = [lamb * loss for (lamb, loss) in reg_losses if loss is not None]
-    if not weighted_terms:
-        return 0.0
-    else:
-        return torch.stack(weighted_terms).sum()
-
-
-#########################################################################################
-def add_sn(m):
-    if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.ConvTranspose2d)):
-        return torch.nn.utils.parametrizations.spectral_norm(m)
-    else:
-        return m
-
-
-#########################################################################################
-def get_spectral_norm(net):
-    spect_norm_layers = net.apply(add_sn)
-    spect_norm = 0
-    for layer in spect_norm_layers:
-        spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
-    return spect_norm
-
+# def add_sn(m):
+#     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.ConvTranspose2d)):
+#         return torch.nn.utils.parametrizations.spectral_norm(m)
+#     else:
+#         return m
+#
+#
+# #########################################################################################
+# def get_spectral_norm(net):
+#     spect_norm_layers = net.apply(add_sn)
+#     spect_norm = 0
+#     for layer in spect_norm_layers:
+#         spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
+#     return spect_norm
+#
+#
+#
+# def get_spectral_norm_parametrizations(net):
+#     for m in net.
+#     spect_norm_layers = net.apply(add_sn)
+#     spect_norm = 0
+#     for layer in spect_norm_layers:
+#         spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
+#     return spect_norm
+#
 
 #########################################################################################
 def get_net_weights_norm(net, norm_type='None'):
