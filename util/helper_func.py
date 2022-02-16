@@ -161,63 +161,6 @@ def sum_regularization_terms(reg_losses):
         return torch.stack(weighted_terms).sum()
 
 
-# #########################################################################################
-
-# def add_spectral_norm(m):
-#     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.Conv2d, nn.ConvTranspose2d)):
-#         return torch.nn.utils.parametrizations.spectral_norm(m)
-#     else:
-#         return m
-
-# #########################################################################################
-#
-# def is_weighted_layer(layer):
-#     layers_types = (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d)
-#     out = isinstance(layer, layers_types)
-#     return out
-
-#########################################################################################
-
-# def get_weighted_layers(net):
-#     stk = [net]
-#     L = []
-#     while stk:
-#         m = stk.pop()
-#         for name, layer in m.named_children():
-#             if is_weighted_layer(layer):
-#                 L.append((name, layer))
-#             else:
-#                 stk.append(layer)
-#     return L
-
-#########################################################################################
-
-# def add_sn(m):
-#     if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, nn.ConvTranspose2d)):
-#         return torch.nn.utils.parametrizations.spectral_norm(m)
-#     else:
-#         return m
-#
-#
-# #########################################################################################
-# def get_spectral_norm(net):
-#     spect_norm_layers = net.apply(add_sn)
-#     spect_norm = 0
-#     for layer in spect_norm_layers:
-#         spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
-#     return spect_norm
-#
-#
-#
-# def get_spectral_norm_parametrizations(net):
-#     for m in net.
-#     spect_norm_layers = net.apply(add_sn)
-#     spect_norm = 0
-#     for layer in spect_norm_layers:
-#         spect_norm += torch.linalg.matrix_norm(layer, 2).sum()
-#     return spect_norm
-#
-
 #########################################################################################
 def get_net_weights_norm(net, norm_type='None'):
     if norm_type == 'None':
@@ -232,4 +175,15 @@ def get_net_weights_norm(net, norm_type='None'):
             tot_norm += torch.norm(param, p='nuc')
     return tot_norm
 
+
 ########################################################################################
+
+def set_spectral_norm_normalization(net):
+    names = []  # for debug
+    for name, module in net.named_modules():
+        if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d,
+                               nn.Conv2d, nn.ConvTranspose2d)):
+            names.append(name)
+            torch.nn.utils.parametrizations.spectral_norm(module, name='weight', n_power_iterations=1, eps=1e-12,
+                                                          dim=None)
+    return net

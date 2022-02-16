@@ -1,11 +1,10 @@
 import torch
 from torch import nn as nn
-from torch.nn import functional as nnf
-
 from models.avsg_map_encoder import MapEncoder
 from models.sub_modules import PointNet, MLP
 
-from util.helper_func import init_net
+from util.helper_func import init_net, set_spectral_norm_normalization
+
 
 
 ###############################################################################
@@ -47,7 +46,11 @@ def define_D(opt, gpu_ids=None):
         net = SceneDiscriminator(opt)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % opt.netD)
-    return init_net(net, opt.init_type, opt.init_gain, gpu_ids)
+
+    if opt.use_spectral_norm_D:
+        net = set_spectral_norm_normalization(net)
+    net = init_net(net, opt.init_type, opt.init_gain, gpu_ids)
+    return net
 
 
 ##############################################################################

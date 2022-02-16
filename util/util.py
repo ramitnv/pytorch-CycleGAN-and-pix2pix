@@ -24,6 +24,7 @@ def num_to_str(x, perc=None):
     else:
         return f'{round(x, perc)}'
 
+
 ##############################################################################################
 def append_to_field(d: Dict, k, v):
     if k in d.keys():
@@ -31,12 +32,14 @@ def append_to_field(d: Dict, k, v):
     else:
         d[k] = [v]
 
+
 ##############################################################################################
 def make_tensor_1d(tsr):
     assert tsr.ndim < 2
     if tsr.ndim == 0:
         tsr = tsr.unsqueeze(0)
     return tsr
+
 
 ##############################################################################################
 
@@ -61,6 +64,8 @@ def tensor2im(input_image, imtype=np.uint8):
         image_numpy = input_image
     return image_numpy.astype(imtype)
 
+##############################################################################################
+
 
 def diagnose_network(net, name='network'):
     """Calculate and print the mean of average absolute(gradients)
@@ -80,6 +85,8 @@ def diagnose_network(net, name='network'):
     print(name)
     print(mean)
 
+##############################################################################################
+
 
 def save_image(image_numpy, image_path, aspect_ratio=1.0):
     """Save a numpy image to the disk
@@ -98,6 +105,8 @@ def save_image(image_numpy, image_path, aspect_ratio=1.0):
         image_pil = image_pil.resize((int(h / aspect_ratio), w), Image.BICUBIC)
     image_pil.save(image_path)
 
+##############################################################################################
+
 
 def print_numpy(x, val=True, shp=False):
     """Print the mean, min, max, median, std, and size of a numpy array
@@ -115,6 +124,9 @@ def print_numpy(x, val=True, shp=False):
             np.mean(x), np.min(x), np.max(x), np.median(x), np.std(x)))
 
 
+##############################################################################################
+
+
 def mkdirs(paths):
     """create empty directories if they don't exist
 
@@ -127,6 +139,7 @@ def mkdirs(paths):
     else:
         mkdir(paths)
 
+##############################################################################################
 
 def mkdir(path):
     """create a single empty directory if it didn't exist
@@ -137,11 +150,14 @@ def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+##############################################################################################
 
 from string import Template
 
+
 class DeltaTemplate(Template):
     delimiter = "%"
+
 
 def strfdelta(tdelta, fmt):
     d = {"D": tdelta.days}
@@ -152,3 +168,5 @@ def strfdelta(tdelta, fmt):
     d["S"] = '{:02d}'.format(seconds)
     t = DeltaTemplate(fmt)
     return t.substitute(**d)
+
+##############################################################################################
