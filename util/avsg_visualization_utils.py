@@ -3,10 +3,20 @@ import numpy as np
 import torch
 from matplotlib.patches import Rectangle
 from util.util import make_tensor_1d
-
+import math
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
+plt.switch_backend('Agg')
 
+######################################################################
+def canvas2rgb_array(canvas):
+    """ https://stackoverflow.com/a/70752653
+    Adapted from: https://stackoverflow.com/a/21940031/959926"""
+    canvas.draw()
+    buf = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+    ncols, nrows = canvas.get_width_height()
+    scale = round(math.sqrt(buf.size / 3 / nrows / ncols))
+    return buf.reshape(scale * nrows, scale * ncols, 3)
 
 ######################################################################
 
@@ -110,6 +120,7 @@ def visualize_scene_feat(agents_feat_s, real_map, opt):
     U = [af['speed'] * np.cos(af['yaw']) for af in agents_feat_s]
     V = [af['speed'] * np.sin(af['yaw']) for af in agents_feat_s]
     fig, ax = plt.subplots()
+    fig.tight_layout(pad=0)
     plot_props = {'lanes_mid': ('lime', 0.4), 'lanes_left': ('black', 0.3), 'lanes_right': ('black', 0.3),
                   'crosswalks': ('orange', 0.4)}
     pd = {}
@@ -130,9 +141,6 @@ def visualize_scene_feat(agents_feat_s, real_map, opt):
     ax.quiver(X[0], Y[0], U[0], V[0], units='xy', color='r', label='Ego', width=0.5)
     ax.grid()
     plt.legend()
-    canvas = plt.gca().figure.canvas
-    canvas.draw()
-    data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
-    image = data.reshape(canvas.get_width_height()[::-1] + (3,))
+    plt_array = canvas2rgb_array(fig.canvas)
     plt.close(fig)
-    return image
+    return plt_array

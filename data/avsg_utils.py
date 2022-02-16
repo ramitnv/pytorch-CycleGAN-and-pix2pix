@@ -15,10 +15,11 @@ def get_single_conditioning_from_batch(conditioning_batch, i_map):
 
 #########################################################################################
 
-def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
+def agents_feat_vecs_to_dicts(agents_feat_vecs, agents_exists, opt):
     assert agents_feat_vecs.ndim == 3  # [n_scenes==1 x max_n_agents x feat_dim]
     assert agents_feat_vecs.shape[0] == 1
-    n_agents = agents_feat_vecs.shape[1]
+    assert agents_exists.shape[0] == 1
+
     # code now supports only this feature format:
     assert opt.agent_feat_vec_coord_labels == [
         'centroid_x',  # [0]  Real number
@@ -28,7 +29,9 @@ def agents_feat_vecs_to_dicts(agents_feat_vecs, opt):
         'speed',  # [4] Real non-negative
     ]
     agents_feat_dicts = []
-    for i_agent in range(n_agents):
+    for i_agent, is_exist in enumerate(agents_exists[0]):
+        if not is_exist:
+            continue
         agent_feat_vec = agents_feat_vecs[0, i_agent].detach().cpu().numpy()
         agent_feat_dict = ({'centroid': agent_feat_vec[:2],
                             'yaw': np.arctan2(agent_feat_vec[3], agent_feat_vec[2]),

@@ -258,7 +258,8 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
 def get_wandb_image(model, conditioning, agents_vecs, opt, label='real_agents'):
     # change data to format used for the plot function:
-    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, opt)
+    agents_exists = conditioning['agents_exists']
+    agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, agents_exists, opt)
     real_map = {k: v[0].detach().cpu().numpy() for k, v in conditioning['map_feat'].items()}
     img = visualize_scene_feat(agents_feat_dicts, real_map, opt)
     pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()

@@ -48,13 +48,13 @@ class TrainOptions(BaseOptions):
 
         parser.add_argument('--feat_match_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
         parser.add_argument('--lamb_loss_G_feat_match', type=float, default=0, help='weight for feat_match_loss ')
-        parser.add_argument('--lamb_loss_D_grad_penalty', type=float, default=0.,
+        parser.add_argument('--lamb_loss_D_grad_penalty', type=float, default=0,
                             help='weight for gradient penalty in WGANGP')
         parser.add_argument('--type_weights_norm_D', type=str, default="Frobenius",
                             help=" None / Frobenius / L1 / Nuclear")
         parser.add_argument('--type_weights_norm_G', type=str, default="Frobenius",
                             help=" None / Frobenius / L1 / Nuclear")
-        parser.add_argument('--lamb_loss_D_weights_norm', type=float, default=1e-4, help=" ")
+        parser.add_argument('--lamb_loss_D_weights_norm', type=float, default=0, help=" ")
         parser.add_argument('--lamb_loss_G_weights_norm', type=float, default=0, help=" ")
 
         parser.add_argument('--target_real_label', type=float, default=0.9,
