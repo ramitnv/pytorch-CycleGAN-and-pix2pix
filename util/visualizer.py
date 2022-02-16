@@ -158,7 +158,7 @@ class Visualizer:
             loss_seq = np.array(self.records[t[1]]) * t[2]
             plt.plot(iter_grid, loss_seq, label='summary/'+label)
         plt.legend()
-        self.wandb_run.log({log_name: plt})
+        wandb.log({log_name: plt})
 
     # ==========================================================================
 
