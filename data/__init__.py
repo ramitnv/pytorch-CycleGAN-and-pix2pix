@@ -29,6 +29,9 @@ def get_dataset_class_using_name(dataset_name):
     if dataset_name == 'avsg':
         from data.avsg_dataset import AvsgDataset
         dataset_class = AvsgDataset
+    elif dataset_name == 'toy':
+        from data.toy_dataset import ToyDataset
+        dataset_class = ToyDataset
     else:
         raise NotImplementedError()
     return dataset_class

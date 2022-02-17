@@ -6,6 +6,16 @@ from util.util import to_num
 
 #########################################################################################
 
+def sample_sanity_check(sample):
+    # should be at least 0.999 since, we have sin(yaw) and cos(yaw) as features
+    agents_feat_vecs = sample['agents_feat_vecs']
+    n_agents_in_scene = sample['conditioning']['n_agents_in_scene']
+    return torch.all(
+        torch.sum(torch.abs(agents_feat_vecs[:n_agents_in_scene]), dim=1)) > 0.999
+
+
+#########################################################################################
+
 class ReadAgentsVecs(object):
     """
     take the closest max_num_agents agents to the ego (the agents are ordered this way in the data)
@@ -120,11 +130,6 @@ class PreprocessSceneData(object):
             map_feat['map_elems_points'][:, :, :, 0] = x_vals
             map_feat['map_elems_points'][:, :, :, 1] = y_vals
 
-        elif self.augmentation_type == 'Gaussian_data':
-            # Replace all the agent features data to gaussian samples... for debug
-            agents_feat_vecs = agents_feat_vecs * 0 + torch.randn_like(agents_feat_vecs)
-            # Set zero to all map features
-            map_feat['map_elems_points'] *= 0
         else:
             raise NotImplementedError(f'Unrecognized opt.augmentation_type  {self.augmentation_type}')
 

@@ -6,28 +6,20 @@
     -- <__len__>: Return the number of samples.
 """
 
-import pathlib
 import pickle
-import sys
 from pathlib import Path
-
 import h5py
 import numpy as np
 import torch
 
-from data.avsg_transforms import SelectAgents, PreprocessSceneData, ReadAgentsVecs, sample_sanity_check
+from data.avsg_transforms import sample_sanity_check
 from data.base_dataset import BaseDataset
-
-is_windows = hasattr(sys, 'getwindowsversion')
-if is_windows:
-    temp = pathlib.PosixPath
-    pathlib.PosixPath = pathlib.WindowsPath
 
 
 #########################################################################################
 
 
-class AvsgDataset(BaseDataset):
+class ToyDataset(BaseDataset):
     """A template dataset class for you to implement custom datasets."""
 
     @staticmethod
@@ -41,21 +33,11 @@ class AvsgDataset(BaseDataset):
         Returns:
             the modified parser.
         """
+        parser.add_argument('--map_data_type',
+                            default='zeros',
+                            type=str,
+                            help='If "zero" then set map_feat=0, if a number, then load this scene index for all samples')
 
-        # ~~~~  Agents features
-        # parser.add_argument('--agent_feat_vec_coord_labels',
-        #                     default=['centroid_x',  # [0]  Real number
-        #                              'centroid_y',  # [1]  Real number
-        #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-        #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-        #                              'extent_length',  # [4] Real positive
-        #                              'extent_width',  # [5] Real positive
-        #                              'speed',  # [6] Real non-negative
-        #                              'is_CAR',  # [7] 0 or 1
-        #                              'is_CYCLIST',  # [8] 0 or 1
-        #                              'is_PEDESTRIAN',  # [9]  0 or 1
-        #                              ],
-        #                     type=list)
         parser.add_argument('--agent_feat_vec_coord_labels',
                             default=['centroid_x',  # [0]  Real number
                                      'centroid_y',  # [1]  Real number
@@ -69,7 +51,11 @@ class AvsgDataset(BaseDataset):
         parser.add_argument('--default_agent_extent_length', type=float, default=4.)  # [m]
         parser.add_argument('--default_agent_extent_width', type=float, default=1.5)  # [m]
 
-        parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
+        parser.add_argument('--max_num_agents', type=int, default=4, help='')
+        parser.add_argument('--num_agents', type=int, default=4, help=' number of agents in a scene')
+
+        parser.add_argument('--theta_type', type=str, default='zero', help=' "zero" | "uniform')
+
         return parser
 
     #########################################################################################
@@ -86,6 +72,7 @@ class AvsgDataset(BaseDataset):
         """
         # save the option and dataset root
         BaseDataset.__init__(self, opt)
+        self.map_data_type = opt.map_data_type
         self.data_path = data_path
         self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
         info_file_path = Path(data_path, 'info').with_suffix('.pkl')
@@ -99,9 +86,12 @@ class AvsgDataset(BaseDataset):
         opt.polygon_types = self.dataset_props['polygon_types']
         opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
         opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
-        self.transforms = [SelectAgents(opt), ReadAgentsVecs(opt, self.dataset_props), PreprocessSceneData(opt)]
-
-    #########################################################################################
+        self.agent_feat_vec_dim = opt.agent_feat_vec_dim
+        self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
+        self.max_num_agents = opt.max_num_agents
+        self.num_agents = opt.num_agents
+        self.theta_type = opt.theta_type
+        #########################################################################################
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -121,19 +111,56 @@ class AvsgDataset(BaseDataset):
         saved_mats_info = self.saved_mats_info
         agents_feat = {}
         map_feat = {}
-        file_path = Path(self.data_path, 'data').with_suffix('.h5')
-        with h5py.File(file_path, 'r') as h5f:
-            for mat_name, mat_info in saved_mats_info.items():
-                mat_sample = np.array(h5f[mat_name][index])
-                mat_sample = torch.from_numpy(mat_sample).to(device=self.device)
-                if mat_info['entity'] == 'map':
-                    map_feat[mat_name] = mat_sample
-                else:
-                    agents_feat[mat_name] = mat_sample
-        sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
-        for fn in self.transforms:
-            sample = fn(sample)
 
+        polygon_types = self.dataset_props['polygon_types']
+        max_num_elem = self.dataset_props['max_num_elem']
+        max_points_per_elem = self.dataset_props['max_points_per_elem']
+        coord_dim = self.dataset_props['coord_dim']
+        max_num_agents = self.max_num_agents
+        num_agents = self.num_agents
+        n_polygon_types = len(polygon_types)
+
+        #####  Set map fields ['map_elems_points', 'map_elems_n_points_orig', 'map_elems_exists']
+        if self.map_data_type == 'zeros':
+            # Set zero to all map features
+            map_feat['map_elems_points'] = torch.zeros((n_polygon_types, max_num_elem, max_points_per_elem, coord_dim),
+                                                       dtype=torch.float32, device=self.device)
+            map_feat['map_elems_n_points_orig'] = torch.zeros((n_polygon_types, max_num_elem),
+                                                              dtype=torch.int16, device=self.device)
+            map_feat['map_elems_n_points_orig'] = torch.zeros((n_polygon_types, max_num_elem),
+                                                              dtype=torch.bool, device=self.device)
+        else:
+            map_scene_idx = int(self.map_data_type)
+            file_path = Path(self.data_path, 'data').with_suffix('.h5')
+            with h5py.File(file_path, 'r') as h5f:
+                for mat_name, mat_info in saved_mats_info.items():
+                    mat_sample = np.array(h5f[mat_name][map_scene_idx])
+                    mat_sample = torch.from_numpy(mat_sample).to(device=self.device)
+                    if mat_info['entity'] == 'map':
+                        map_feat[mat_name] = mat_sample
+
+        ##### Set agents_feat fields ['agents_feat_vecs', 'agents_num', 'agents_exists']
+        x_range = (-20, 20)
+        y_range = (-20, 20)
+        agents_feat_vecs = torch.zeros((max_num_agents, self.agent_feat_vec_dim), dtype=torch.float32, device=self.device)
+        coord_labels = self.agent_feat_vec_coord_labels
+        agents_feat_vecs[:num_agents, coord_labels.index('centroid_x')] \
+            = x_range[0] + (x_range[1] - x_range[0]) * torch.rand(num_agents, dtype=torch.float32, device=self.device)
+        agents_feat_vecs[:num_agents, coord_labels.index('centroid_y')]\
+            = y_range[0] + (y_range[1] - y_range[0]) * torch.rand(num_agents, dtype=torch.float32, device=self.device)
+
+        if self.theta_type == 'uniform':
+            thetas = 2 * torch.pi * torch.rand(num_agents, dtype=torch.float32, device=self.device)  # uniform angle
+        elif self.theta_type == 'zero':
+            thetas = torch.zeros(num_agents, dtype=torch.float32, device=self.device)  # zero angle
+        else:
+            raise NotImplementedError
+        agents_feat_vecs[:num_agents, coord_labels.index('yaw_cos')] = torch.cos(thetas)
+        agents_feat_vecs[:num_agents, coord_labels.index('yaw_sin')] = torch.sin(thetas)
+
+        agents_feat_vecs[:num_agents, coord_labels.index('speed')] = torch.ones(num_agents, dtype=torch.float32, device=self.device)
+
+        sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         assert sample_sanity_check(sample)
         return sample
 

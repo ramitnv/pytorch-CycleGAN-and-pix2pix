@@ -10,8 +10,7 @@ plt.switch_backend('Agg')
 
 ######################################################################
 def canvas2rgb_array(canvas):
-    """ https://stackoverflow.com/a/70752653
-    Adapted from: https://stackoverflow.com/a/21940031/959926"""
+    """ https://stackoverflow.com/a/70752653"""
     canvas.draw()
     buf = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
     ncols, nrows = canvas.get_width_height()
