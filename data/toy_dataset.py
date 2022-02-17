@@ -143,6 +143,7 @@ class ToyDataset(BaseDataset):
         x_range = (-20, 20)
         y_range = (-20, 20)
         agents_feat_vecs = torch.zeros((max_num_agents, self.agent_feat_vec_dim), dtype=torch.float32, device=self.device)
+
         coord_labels = self.agent_feat_vec_coord_labels
         agents_feat_vecs[:num_agents, coord_labels.index('centroid_x')] \
             = x_range[0] + (x_range[1] - x_range[0]) * torch.rand(num_agents, dtype=torch.float32, device=self.device)
@@ -159,6 +160,12 @@ class ToyDataset(BaseDataset):
         agents_feat_vecs[:num_agents, coord_labels.index('yaw_sin')] = torch.sin(thetas)
 
         agents_feat_vecs[:num_agents, coord_labels.index('speed')] = torch.ones(num_agents, dtype=torch.float32, device=self.device)
+
+        agents_exists = torch.zeros(max_num_agents, dtype=torch.bool, device=self.device)
+        agents_exists[:num_agents] = 1
+        agents_num = agents_exists.sum()
+
+        agents_feat = {'agents_feat_vecs': agents_feat_vecs, 'agents_exists': agents_exists, 'agents_num': agents_num}
 
         sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         assert sample_sanity_check(sample)
