@@ -20,8 +20,9 @@ See our template model class 'template_model.py' for more details.
 """
 
 
-from models.base_model import BaseModel
 from models.avsg_model import AvsgModel
+from models.base_model import BaseModel
+
 
 #---------------------------------------------------------------------
 

@@ -18,13 +18,13 @@ You need to implement the following functions:
 
 import torch
 
-import models.avsg_generator
 from models.avsg_discriminator import cal_gradient_penalty
-from .avsg_discriminator import define_D
 from models.avsg_generator import define_G
-from .sub_modules import GANLoss
-from .base_model import BaseModel
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
+from .avsg_discriminator import define_D
+from .base_model import BaseModel
+from .sub_modules import GANLoss
+
 
 #########################################################################################
 

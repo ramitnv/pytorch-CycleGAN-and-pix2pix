@@ -1,10 +1,9 @@
 import torch
 from torch import nn as nn
+
 from models.avsg_map_encoder import MapEncoder
 from models.sub_modules import PointNet, MLP
-
 from util.helper_func import init_net, set_spectral_norm_normalization
-
 
 
 ###############################################################################

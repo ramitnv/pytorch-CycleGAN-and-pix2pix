@@ -1,16 +1,19 @@
 import ntpath
 import os
 import time
-import numpy as np
+import warnings
+
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
-from data.data_func import get_next_batch_cyclic
-from util.util import append_to_field, num_to_str, to_num
+
 from data.avsg_utils import agents_feat_vecs_to_dicts, get_agents_descriptions, \
     get_single_conditioning_from_batch
+from data.data_func import get_next_batch_cyclic
 from util.avsg_visualization_utils import visualize_scene_feat
+from util.util import append_to_field, num_to_str, to_num
 from . import util, html
-import warnings
+
 try:
     import wandb
 except ImportError:

@@ -12,15 +12,17 @@ You need to implement the following functions:
     -- <__len__>: Return the number of images.
 """
 
-import pickle
-import numpy as np
-from data.base_dataset import BaseDataset
-from pathlib import Path
-import sys
 import pathlib
+import pickle
+import sys
+from pathlib import Path
+
 import h5py
+import numpy as np
 import torch
+
 from data.avsg_transforms import SelectAgents, PreprocessSceneData, ReadAgentsVecs
+from data.base_dataset import BaseDataset
 
 is_windows = hasattr(sys, 'getwindowsversion')
 if is_windows:

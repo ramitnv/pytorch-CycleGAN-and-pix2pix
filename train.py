@@ -27,6 +27,7 @@ The script supports continue/resume training. Use '--continue_train' to resume y
 Note: if you get CUDA Unknown error, try $ apt-get install nvidia-modprobe
 """
 import time
+
 from data.data_func import create_dataloader, get_next_batch_cyclic
 from models import create_model
 from options.train_options import TrainOptions

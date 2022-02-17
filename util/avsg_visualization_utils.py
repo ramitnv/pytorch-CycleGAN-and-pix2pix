@@ -1,9 +1,9 @@
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 from matplotlib.patches import Rectangle
-from util.util import make_tensor_1d
-import math
+
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
 plt.switch_backend('Agg')

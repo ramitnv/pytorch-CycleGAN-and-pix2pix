@@ -1,11 +1,11 @@
 import torch
 from torch import nn as nn
+from torch.nn.init import trunc_normal_
 
 from models.avsg_agents_decoder import get_agents_decoder
 from models.avsg_map_encoder import MapEncoder
-
 from util.helper_func import init_net
-from torch.nn.init import trunc_normal_
+
 
 ###############################################################################
 
