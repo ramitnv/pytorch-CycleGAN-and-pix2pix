@@ -83,8 +83,7 @@ class SceneGenerator(nn.Module):
             n_agents = n_agents_per_scene[i_scene]
             trunc_normal_(latent_noise[i_scene, :n_agents], mean=0., std=1.,
                           a=-latent_noise_trunc_stds, b=+latent_noise_trunc_stds)
-            # = self.latent_noise_std * torch.randn(
-            #     (1, n_agents, self.dim_agent_noise), device=self.device)
+
         return latent_noise
 
     ###############################################################################

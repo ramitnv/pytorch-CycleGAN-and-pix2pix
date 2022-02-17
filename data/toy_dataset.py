@@ -125,9 +125,9 @@ class ToyDataset(BaseDataset):
             # Set zero to all map features
             map_feat['map_elems_points'] = torch.zeros((n_polygon_types, max_num_elem, max_points_per_elem, coord_dim),
                                                        dtype=torch.float32, device=self.device)
-            map_feat['map_elems_n_points_orig'] = torch.zeros((n_polygon_types, max_num_elem),
-                                                              dtype=torch.int16, device=self.device)
-            map_feat['map_elems_n_points_orig'] = torch.zeros((n_polygon_types, max_num_elem),
+            map_feat['map_elems_exists'] = torch.zeros((n_polygon_types, max_num_elem),
+                                                       dtype=torch.int16, device=self.device)
+            map_feat['map_elems_n_points_orig'] = torch.zeros(n_polygon_types,
                                                               dtype=torch.bool, device=self.device)
         else:
             map_scene_idx = int(self.map_data_type)
@@ -142,12 +142,13 @@ class ToyDataset(BaseDataset):
         ##### Set agents_feat fields ['agents_feat_vecs', 'agents_num', 'agents_exists']
         x_range = (-20, 20)
         y_range = (-20, 20)
-        agents_feat_vecs = torch.zeros((max_num_agents, self.agent_feat_vec_dim), dtype=torch.float32, device=self.device)
+        agents_feat_vecs = torch.zeros((max_num_agents, self.agent_feat_vec_dim), dtype=torch.float32,
+                                       device=self.device)
 
         coord_labels = self.agent_feat_vec_coord_labels
         agents_feat_vecs[:num_agents, coord_labels.index('centroid_x')] \
             = x_range[0] + (x_range[1] - x_range[0]) * torch.rand(num_agents, dtype=torch.float32, device=self.device)
-        agents_feat_vecs[:num_agents, coord_labels.index('centroid_y')]\
+        agents_feat_vecs[:num_agents, coord_labels.index('centroid_y')] \
             = y_range[0] + (y_range[1] - y_range[0]) * torch.rand(num_agents, dtype=torch.float32, device=self.device)
 
         if self.theta_type == 'uniform':
@@ -159,15 +160,16 @@ class ToyDataset(BaseDataset):
         agents_feat_vecs[:num_agents, coord_labels.index('yaw_cos')] = torch.cos(thetas)
         agents_feat_vecs[:num_agents, coord_labels.index('yaw_sin')] = torch.sin(thetas)
 
-        agents_feat_vecs[:num_agents, coord_labels.index('speed')] = torch.ones(num_agents, dtype=torch.float32, device=self.device)
+        agents_feat_vecs[:num_agents, coord_labels.index('speed')] = torch.ones(num_agents, dtype=torch.float32,
+                                                                                device=self.device)
 
         agents_exists = torch.zeros(max_num_agents, dtype=torch.bool, device=self.device)
         agents_exists[:num_agents] = 1
         agents_num = agents_exists.sum()
 
-        agents_feat = {'agents_feat_vecs': agents_feat_vecs, 'agents_exists': agents_exists, 'agents_num': agents_num}
+        conditioning = {'map_feat': map_feat, 'n_agents_in_scene': agents_num, 'agents_exists': agents_exists}
+        sample = {'conditioning': conditioning, 'agents_feat_vecs': agents_feat_vecs}
 
-        sample = {'agents_feat': agents_feat, 'map_feat': map_feat}
         assert sample_sanity_check(sample)
         return sample
 
