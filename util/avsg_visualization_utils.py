@@ -102,7 +102,7 @@ def plot_rectangles(ax, centroids, extents, yaws, label='car', facecolor='skyblu
 
 
 ##############################################################################################
-def visualize_scene_feat(agents_feat_s, real_map, opt):
+def visualize_scene_feat(agents_feat_s, real_map, opt, title=''):
     map_points_s = real_map['map_elems_points']
     map_elems_availability_s = real_map['map_elems_exists']
     map_n_points_orig_s = real_map['map_elems_n_points_orig']
@@ -140,6 +140,7 @@ def visualize_scene_feat(agents_feat_s, real_map, opt):
     ax.quiver(X[0], Y[0], U[0], V[0], units='xy', color='r', label='Ego', width=0.5)
     ax.grid()
     plt.legend()
+    plt.title(title)
     plt_array = canvas2rgb_array(fig.canvas)
     plt.close(fig)
     return plt_array
