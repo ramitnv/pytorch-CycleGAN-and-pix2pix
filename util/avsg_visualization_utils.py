@@ -140,8 +140,9 @@ def visualize_scene_feat(agents_feat_s, real_map, opt, title=''):
     ax.quiver(X[0], Y[0], U[0], V[0], units='xy', color='r', label='Ego', width=0.5)
     ax.grid()
     plt.legend()
-    plt.title(title)
-    plt.rcParams['axes.titlepad'] = -50  # pad is in points...
+    ax.set_title(title, y=1.0, pad=-14)
+    plt.rcParams['axes.titley'] = 1.0  # y is in axes-relative coordinates.
+    plt.rcParams['axes.titlepad'] = -14  # pad is in points...
     plt_array = canvas2rgb_array(fig.canvas)
     plt.close(fig)
     return plt_array
