@@ -35,7 +35,8 @@ class BaseModel(ABC):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
-        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')  # get device name: CPU or GPU
+        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device(
+            'cpu')  # get device name: CPU or GPU
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)  # save all the checkpoints to save_dir
         self.model_names = []
         self.visual_names = []
@@ -43,7 +44,6 @@ class BaseModel(ABC):
         self.lr_G = opt.lr_G
         self.lr_D = opt.lr_D
         self.metric = 0  # used for learning rate policy 'plateau'
-
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
@@ -57,7 +57,6 @@ class BaseModel(ABC):
             the modified parser.
         """
         return parser
-
 
     def setup(self, opt):
         """Load and print networks; create schedulers
@@ -78,7 +77,6 @@ class BaseModel(ABC):
             if isinstance(name, str):
                 net = getattr(self, 'net' + name)
                 net.eval()
-
 
     def train(self):
         """Make models eval mode during test time"""
@@ -126,7 +124,6 @@ class BaseModel(ABC):
             if isinstance(name, str):
                 visual_ret[name] = getattr(self, name)
         return visual_ret
-
 
     def save_networks(self, epoch):
         """Save all the networks to the disk.

@@ -45,7 +45,6 @@ class Visualizer:
         self.win_size = opt.display_winsize
         self.name = opt.name
         self.use_wandb = opt.use_wandb
-        self.current_fig_index = 0
         self.plotted_inds = []
         self.records = dict()
         if self.use_wandb:
@@ -69,7 +68,6 @@ class Visualizer:
 
     def print_current_metrics(self, model, i, opt, train_conditioning, val_data_gen, run_start_time):
         """  print training losses and save logging information to the log file and wandblog charts
-
 
         Parameters:
             i_epoch (int) -- current epoch
@@ -161,7 +159,7 @@ class Visualizer:
             loss_seq = np.array(self.records[t[1]]) * t[2]
             plt.plot(iter_grid, loss_seq, label='summary/'+label)
         plt.legend()
-        wandb.log({log_name: plt})
+        self.wandb_run.log({log_name: plt})
 
     # ==========================================================================
 
@@ -185,6 +183,10 @@ class Visualizer:
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
 
+        if self.use_wandb:
+            for log_label, log_data in wandb_logs.items():
+                self.wandb_run.log({log_label: log_data})
+
         # save images to an HTML file if they haven't been saved.
         if self.use_html:
             # save images to the disk
@@ -204,15 +206,11 @@ class Visualizer:
                     links.append(img_path)
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
-        if self.use_wandb:
-            if fig_index != self.current_fig_index:
-                self.current_fig_index = fig_index
-                for log_label, log_data in wandb_logs.items():
-                    self.wandb_run.log({log_label: log_data})
 
         print(f'Figure saved for iteration #{i + 1}')
 
-    # ==========================================================================
+        ##############################################################################################
+
 
 
 def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen):
@@ -238,7 +236,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
-            log_label = f"{dataset_name}_iter_{i + 1}_map_{i_map + 1}"
+            log_label = f"{dataset_name}_images/iter_{i + 1}_map_{i_map + 1}"
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real')
             visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
@@ -256,6 +254,9 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
         model.train()
     return visuals_dict, wandb_logs
 
+##############################################################################################
+
+
 
 #########################################################################################
 
@@ -271,40 +272,5 @@ def get_wandb_image(model, conditioning, agents_vecs, opt, label='real_agents'):
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
 
-
-##############################################################################################
-
-def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False, file_type='png'):
-    """Save images to the disk.
-
-    Parameters:
-        webpage (the HTML class) -- the HTML webpage class that stores these images (see html.py for more details)
-        visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
-        image_path (str)         -- the string is used to create image paths
-        aspect_ratio (float)     -- the aspect ratio of saved images
-        width (int)              -- the images will be resized to width x width
-
-    This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
-    """
-    image_dir = webpage.get_image_dir()
-    short_path = ntpath.basename(image_path[0])
-    name = os.path.splitext(short_path)[0]
-
-    webpage.add_header(name)
-    ims, txts, links = [], [], []
-    ims_dict = {}
-    for label, im_data in visuals.items():
-        im = util.tensor2im(im_data)
-        image_name = f'{name}_{label}.{file_type}'
-        save_path = os.path.join(image_dir, image_name)
-        util.save_image(im, save_path, aspect_ratio=aspect_ratio)
-        ims.append(image_name)
-        txts.append(label)
-        links.append(image_name)
-        if use_wandb:
-            ims_dict[label] = wandb.Image(im)
-    webpage.add_images(ims, txts, links, width=width)
-    if use_wandb:
-        wandb.log(ims_dict)
 
 ##############################################################################################
