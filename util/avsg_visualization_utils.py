@@ -141,7 +141,7 @@ def visualize_scene_feat(agents_feat_s, real_map, opt, title=''):
     ax.grid()
     plt.legend()
     plt.title(title)
-    plt.rcParams['axes.titlepad'] = -14  # pad is in points...
+    plt.rcParams['axes.titlepad'] = -50  # pad is in points...
     plt_array = canvas2rgb_array(fig.canvas)
     plt.close(fig)
     return plt_array
