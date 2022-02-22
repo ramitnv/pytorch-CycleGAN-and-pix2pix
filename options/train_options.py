@@ -39,7 +39,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         parser.add_argument('--gan_mode', type=str, default='vanilla',
                             help='the type of GAN objective. [vanilla| lsgan | wgangp]. vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
-        parser.add_argument('--lr_policy', type=str, default='cosine',
+        parser.add_argument('--lr_policy', type=str, default='constant',
                             help='learning rate policy. [linear | step | plateau | cosine | constant]')
         parser.add_argument('--lr_decay_iters', type=int, default=50,
                             help='multiply by a gamma every lr_decay_iters iterations if lr_policy==step')

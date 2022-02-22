@@ -15,6 +15,12 @@ metric:
   goal: maximize
 parameters:
   lr_G:
-    values: [0.002, 0.02]
+    values: [0.001, 0.002, 0.02]
   lr_D:
-    values: [0.002, 0.02]
+    values: [0.001, 0.002, 0.02]
+  batch_size:
+    values: [128, 512, 1024]
+  n_steps_G:
+    values: [1, 2 ]
+
+

@@ -54,7 +54,7 @@ class AvsgModel(BaseModel):
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
-            parser.add_argument('--n_point_net_layers', type=int, default=3, help='PointNet layers number')
+            parser.add_argument('--n_point_net_layers', type=int, default=4, help='PointNet layers number')
             parser.add_argument('--use_layer_norm', type=int, default=0, help='0 or 1')
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
@@ -63,10 +63,10 @@ class AvsgModel(BaseModel):
             parser.add_argument('--dim_latent_polygon_elem', type=int, default=8, help='')
             parser.add_argument('--dim_latent_polygon_type', type=int, default=16, help='')
             parser.add_argument('--kernel_size_conv_polygon', type=int, default=5, help='')
-            parser.add_argument('--n_conv_layers_polygon', type=int, default=3, help='')
-            parser.add_argument('--n_layers_poly_types_aggregator', type=int, default=3, help='')
-            parser.add_argument('--n_layers_sets_aggregator', type=int, default=3, help='')
-            parser.add_argument('--n_layers_scene_embedder_out', type=int, default=3, help='')
+            parser.add_argument('--n_conv_layers_polygon', type=int, default=4, help='')
+            parser.add_argument('--n_layers_poly_types_aggregator', type=int, default=4, help='')
+            parser.add_argument('--n_layers_sets_aggregator', type=int, default=4, help='')
+            parser.add_argument('--n_layers_scene_embedder_out', type=int, default=4, help='')
 
             # ~~~~ discriminator encoder settings
             parser.add_argument('--dim_discr_agents_enc', type=int, default=16, help='')
@@ -74,8 +74,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--n_discr_pointnet_layers', type=int, default=3, help='')
 
             # ~~~~   Agents decoder options
-            parser.add_argument('--agents_dec_in_layers', type=int, default=3, help='')
-            parser.add_argument('--agents_dec_out_layers', type=int, default=3, help='')
+            parser.add_argument('--agents_dec_in_layers', type=int, default=4, help='')
+            parser.add_argument('--agents_dec_out_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_n_stacked_rnns', type=int, default=3, help='')
             parser.add_argument('--agents_dec_dim_hid', type=int, default=512, help='')
             parser.add_argument('--agents_dec_use_bias', type=int, default=1)
