@@ -47,9 +47,9 @@ class Visualizer:
         self.use_wandb = opt.use_wandb
         self.plotted_inds = []
         self.records = dict()
+        exp_name = opt.name if opt.name != '' else None
         if self.use_wandb:
-            self.wandb_run = wandb.init(project='SceneGen', name=opt.name, config=opt) if not wandb.run else wandb.run
-            self.wandb_run._label(repo='SceneGen')
+            self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
 
         if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
