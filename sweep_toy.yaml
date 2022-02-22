@@ -1,0 +1,18 @@
+program: train.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - "--use_wandb"
+  - "--dataset toy"
+  - "--n_iter 100000"
+  - ${args}
+method: grid
+metric:
+  name: val/G/G_out_variability
+  goal: maximize
+parameters:
+  lr_G:
+    values: [0.002, 0.02]
+  lr_D:
+    values: [0.002, 0.02]
