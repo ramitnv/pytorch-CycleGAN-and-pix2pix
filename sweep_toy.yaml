@@ -4,8 +4,10 @@ command:
   - ${interpreter}
   - ${program}
   - "--use_wandb"
-  - "--dataset toy"
-  - "--n_iter 100000"
+  - "--dataset"
+  - "toy"
+  - "--n_iter"
+  - "100000"
   - ${args}
 method: grid
 metric:
