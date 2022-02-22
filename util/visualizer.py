@@ -47,7 +47,7 @@ class Visualizer:
         self.use_wandb = opt.use_wandb
         self.plotted_inds = []
         self.records = dict()
-        exp_name = opt.name if opt.name != '' else None
+        exp_name = opt.name
         if self.use_wandb:
             self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
 

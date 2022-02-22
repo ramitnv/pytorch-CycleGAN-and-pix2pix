@@ -48,9 +48,6 @@ class AvsgModel(BaseModel):
 
             parser.add_argument('--shuffle_agents_inds_flag', type=int, default=1,  help="")
 
-            # ~~~~  Map features
-
-
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')
