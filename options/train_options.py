@@ -16,12 +16,10 @@ class TrainOptions(BaseOptions):
         #   visualization parameters
         parser.add_argument('--display_freq', type=int, default=200,
                             help='frequency of showing training results on screen')
-        parser.add_argument('--update_html_freq', type=int, default=1000,
-                            help='frequency of saving training results to html')
         parser.add_argument('--print_freq', type=int, default=5,
                             help='frequency of showing training results on console')
-        parser.add_argument('--save_local_html_images', type=int, default=0, help='Flag 0 or 1')
-        parser.add_argument('--save_images_to_wandb', type=int, default=0, help='Flag 0 or 1')
+        parser.add_argument('--num_last_images_save_local', type=int, default=0, help='')
+        parser.add_argument('--num_last_images_save_wandb', type=int, default=10, help='')
 
         # network saving and loading parameters
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')

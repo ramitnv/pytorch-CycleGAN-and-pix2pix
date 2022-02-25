@@ -96,7 +96,7 @@ class BaseModel(ABC):
             self.compute_visuals()
 
     def compute_visuals(self):
-        """Calculate additional output images for visdom and HTML visualization"""
+        """Calculate additional output images for visualization"""
         pass
 
     def get_image_paths(self):

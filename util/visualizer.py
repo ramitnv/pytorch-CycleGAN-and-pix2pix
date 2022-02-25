@@ -1,4 +1,3 @@
-import ntpath
 import os
 import time
 import warnings
@@ -12,7 +11,7 @@ from data.avsg_utils import agents_feat_vecs_to_dicts, get_agents_descriptions, 
 from data.data_func import get_next_batch_cyclic
 from util.avsg_visualization_utils import visualize_scene_feat
 from util.util import append_to_field, num_to_str, to_num
-from . import util, html
+from . import util
 
 try:
     import wandb
@@ -25,36 +24,23 @@ warnings.filterwarnings("ignore", "I found a path object that I don't think is p
 class Visualizer:
     """This class includes several functions that can display/save images and print/save logging information.
 
-    It uses   a Python library 'dominate' (wrapped in 'HTML') for creating HTML files with images.
-    """
+     """
 
     # ==========================================================================
 
     def __init__(self, opt):
         """Initialize the Visualizer class
 
-        Parameters:
-            opt -- stores all the experiment flags; needs to be a subclass of BaseOptions
-        Step 1: Cache the training/test options
-        Step 3: create an HTML object for saveing HTML filters
-        Step 4: create a logging file to store training losses
         """
 
         self.opt = opt  # cache the option
-        self.win_size = opt.display_winsize
         self.name = opt.name
         self.use_wandb = opt.use_wandb
         self.plotted_inds = []
-        self.records = dict()
         exp_name = opt.name
         if self.use_wandb:
             self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
 
-        if opt.save_local_html_images:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
-            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
-            self.img_dir = os.path.join(self.web_dir, 'images')
-            print('create web directory %s...' % self.web_dir)
-            util.mkdirs([self.web_dir, self.img_dir])
         # create a logging file to store training losses
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
@@ -171,41 +157,24 @@ class Visualizer:
 
     def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen,
                                 file_type='jpg'):
-        """Display current results on visdom; save current results to an HTML file.
-
-        Parameters:
-            visuals (OrderedDict) - - dictionary of images if len(self.gpu_ids) > 0 and torch.cuda.is_available(to display or save
-            epoch (int) - - the current epoch
-            save_result (bool) - - if save the current results to an HTML file
-        """
+        """Display current results
+b
+         """
         fig_index = i
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
 
-        if self.use_wandb and opt.save_images_to_wandb:
+        if self.use_wandb and opt.num_last_images_save_wandb > 0:
             for log_label, log_data in wandb_logs.items():
                 self.wandb_run.log({log_label: log_data})
 
         # save images to an HTML file if they haven't been saved.
-        if opt.save_local_html_images:
+        if opt.num_last_images_save_local:
             # save images to the disk
             for label, image in visuals_dict.items():
                 image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'i{i + 1}_{label}.{file_type}')
+                img_path = os.path.join(self.img_dir, f'i{i % opt.num_last_images_save_local}_{label}.{file_type}')
                 util.save_image(image_numpy, img_path)
-            # update website
-            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=0)
-            for ind in self.plotted_inds[::-1]:
-                webpage.add_header(f'tot_iter {ind}')
-                ims, txts, links = [], [], []
-                for label, image_numpy in visuals_dict.items():
-                    img_path = f'iter{ind}_{label}.{file_type}'
-                    ims.append(img_path)
-                    txts.append(label)
-                    links.append(img_path)
-                webpage.add_images(ims, txts, links, width=self.win_size)
-            webpage.save()
-
         print(f'Figure saved for iteration #{i + 1}')
 
         ##############################################################################################
@@ -213,7 +182,7 @@ class Visualizer:
 
 
 def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen):
-    """Return visualization images. train.py will display these images with visdom, and save the images to a HTML"""
+    """Return visualization images. train.py will display these images with visdom, and save the images  """
 
     vis_n_maps = min(opt.vis_n_maps, opt.batch_size)  # how many maps to visualize
     vis_n_generator_runs = opt.vis_n_generator_runs  # how many sampled fake agents per map to visualize
@@ -223,23 +192,23 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
-    if not opt.save_local_html_images and not opt.save_images_to_wandb:
+    if opt.num_last_images_save_local == 0 and not opt.num_last_images_save_wandb == 0:
         return visuals_dict, wandb_logs
     model.eval()
+    save_id_local = i % opt.num_last_images_save_local
+    save_id_wandb = i % opt.num_last_images_save_wandb
     for dataset_name, scenes_batch in scenes_batches_dict.items():
-
         real_agents_vecs_batch, conditioning_batch = scenes_batch
-
         for i_map in range(vis_n_maps):
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
 
             # Add an image of the map & real agents to wandb logs
-            log_label = f"{dataset_name}_images/iter_{i + 1}_map_{i_map + 1}"
+            log_label = f"{dataset_name}_images/id_{save_id_wandb}_map_{i_map + 1}"
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real',
                                              title=f'map_{i_map + 1}_real')
-            visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real_agents'] = img
+            visuals_dict[f'{save_id_local}_{dataset_name}_map_{i_map + 1}_real_agents'] = img
             if opt.use_wandb:
                 wandb_logs[log_label] = [wandb_img]
 
@@ -249,7 +218,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
                                                  label=f'fake_{1 + i_generator_run}',
                                                  title=f'map_{i_map + 1}_fake_{1 + i_generator_run}')
-                visuals_dict[f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
+                visuals_dict[f'{save_id_local}_{dataset_name}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
                 if opt.use_wandb:
                     wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:
