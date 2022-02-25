@@ -20,8 +20,9 @@ class TrainOptions(BaseOptions):
                             help='frequency of saving training results to html')
         parser.add_argument('--print_freq', type=int, default=5,
                             help='frequency of showing training results on console')
-        parser.add_argument('--no_html', action='store_true',
-                            help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
+        parser.add_argument('--save_local_html_images', type=int, default=0, help='Flag 0 or 1')
+        parser.add_argument('--save_images_to_wandb', type=int, default=0, help='Flag 0 or 1')
+
         # network saving and loading parameters
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         parser.add_argument('--save_by_iter', action='store_true', help='whether saves model by iteration')

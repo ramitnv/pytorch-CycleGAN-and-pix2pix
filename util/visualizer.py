@@ -41,7 +41,6 @@ class Visualizer:
         """
 
         self.opt = opt  # cache the option
-        self.use_html = opt.isTrain and not opt.no_html
         self.win_size = opt.display_winsize
         self.name = opt.name
         self.use_wandb = opt.use_wandb
@@ -51,7 +50,7 @@ class Visualizer:
         if self.use_wandb:
             self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
 
-        if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
+        if opt.save_local_html_images:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
             print('create web directory %s...' % self.web_dir)
@@ -183,12 +182,12 @@ class Visualizer:
         self.plotted_inds.append(fig_index)
         visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
 
-        if self.use_wandb:
+        if self.use_wandb and opt.save_images_to_wandb:
             for log_label, log_data in wandb_logs.items():
                 self.wandb_run.log({log_label: log_data})
 
         # save images to an HTML file if they haven't been saved.
-        if self.use_html:
+        if opt.save_local_html_images:
             # save images to the disk
             for label, image in visuals_dict.items():
                 image_numpy = util.tensor2im(image)
@@ -224,8 +223,9 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
+    if not opt.save_local_html_images and not opt.save_images_to_wandb:
+        return visuals_dict, wandb_logs
     model.eval()
-
     for dataset_name, scenes_batch in scenes_batches_dict.items():
 
         real_agents_vecs_batch, conditioning_batch = scenes_batch
