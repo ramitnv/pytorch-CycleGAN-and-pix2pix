@@ -37,6 +37,7 @@ class Visualizer:
         self.name = opt.name
         self.use_wandb = opt.use_wandb
         self.plotted_inds = []
+        self.records = {}
         exp_name = opt.name
         if self.use_wandb:
             self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
@@ -137,12 +138,14 @@ class Visualizer:
 
     def plot_weighted_loss_summary(self, loss_terms, log_name):
         iter_grid = np.array(self.records['i'])
-        for t in loss_terms:
-            if t[1] not in self.records.keys():
+        for loss_term in loss_terms:
+            loss_name = loss_term[1]
+            loss_label = loss_term[0]
+            loss_lambda_weight = loss_term[2]
+            if loss_name not in self.records.keys():
                 continue
-            label = t[0]
-            loss_seq = np.array(self.records[t[1]]) * t[2]
-            plt.plot(iter_grid, loss_seq, label='summary/'+label)
+            loss_seq = np.array(self.records[loss_name]) * loss_lambda_weight
+            plt.plot(iter_grid, loss_seq, label='summary/'+ loss_label)
         plt.legend()
         self.wandb_run.log({log_name: plt})
 
