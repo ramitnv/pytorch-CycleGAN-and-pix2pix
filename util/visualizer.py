@@ -195,7 +195,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
     visuals_dict = {}
-    if opt.num_last_images_save_local == 0 and not opt.num_last_images_save_wandb == 0:
+    if opt.num_last_images_save_local == 0 and opt.num_last_images_save_wandb == 0:
         return visuals_dict, wandb_logs
     model.eval()
     save_id_local = i % opt.num_last_images_save_local
