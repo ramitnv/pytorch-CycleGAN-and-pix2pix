@@ -167,7 +167,7 @@ b
         if wandb_logs:
             for log_label, log_data in wandb_logs.items():
                 if is_windows:  # https://stackoverflow.com/q/70615413
-                    log_label.replace('/', '_')
+                    log_label = log_label.replace('/', '_')
                 self.wandb_run.log({log_label: log_data})
 
         ##############################################################################################
