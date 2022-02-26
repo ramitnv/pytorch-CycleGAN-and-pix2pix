@@ -150,7 +150,7 @@ class Visualizer:
         plt.legend()
         self.wandb_run.log({log_name: plt})
 
-    # ==========================================================================
+    # =========================================================== ===============
 
     def get_loss_series(self, net_type='G', data_type='train'):
         losses_labels = [k for k in self.records.keys() if k.startswith(f'{data_type}/{net_type}')]
@@ -164,8 +164,9 @@ class Visualizer:
 b
          """
         wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
-        for log_label, log_data in wandb_logs.items():
-            self.wandb_run.log({log_label: log_data})
+        if wandb_logs:
+            for log_label, log_data in wandb_logs.items():
+                self.wandb_run.log({log_label: log_data})
 
         ##############################################################################################
 
@@ -204,7 +205,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
                 wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:
         model.train()
-    return
+    return wandb_logs
 
 ##############################################################################################
 
