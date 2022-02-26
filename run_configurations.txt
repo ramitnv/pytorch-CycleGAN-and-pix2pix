@@ -1,0 +1,3 @@
+
+## train toy online
+python -m train --name toy_tmp --dataset toy --wandb_online
