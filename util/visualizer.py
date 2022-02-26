@@ -192,7 +192,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             # create an image of the map & real agents
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real',
                                              title=f'map_{i_map + 1}_real')
-            log_label = f"{dataset_name}_images/id_{i % opt.num_last_images_save_wandb}_map_{i_map + 1}"
+            log_label = f"{dataset_name}_images/id_{i % opt.num_last_images_to_save}_map_{i_map + 1}"
             wandb_logs[log_label] = [wandb_img]
             for i_generator_run in range(vis_n_generator_runs):
                 # create an image of the map & fake agents
