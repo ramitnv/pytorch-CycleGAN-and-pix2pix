@@ -13,10 +13,8 @@ from util.avsg_visualization_utils import visualize_scene_feat
 from util.util import append_to_field, num_to_str, to_num
 from . import util
 
-try:
-    import wandb
-except ImportError:
-    print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
+import wandb
+
 warnings.filterwarnings("ignore", "I found a path object that I don't think is part of a bar chart. Ignoring.")
 
 ##############################################################################################
@@ -35,12 +33,16 @@ class Visualizer:
 
         self.opt = opt  # cache the option
         self.name = opt.name
-        self.use_wandb = opt.use_wandb
-        self.plotted_inds = []
+        self.wandb_online = opt.wandb_online
         self.records = {}
         exp_name = opt.name
-        if self.use_wandb:
-            self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
+        if self.wandb_online:
+            # https://docs.wandb.ai/guides/track/advanced/environment-variables
+            os.environ["WANDB_MODE"] = "run"
+        else:
+            os.environ["WANDB_MODE"] = "offline"
+
+        self.wandb_run = wandb.init(project='SceneGen', name=exp_name, config=opt) if not wandb.run else wandb.run
 
         # create a logging file to store training losses
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
@@ -103,36 +105,35 @@ class Visualizer:
             model.train()
 
         # update wandb charts
-        if self.use_wandb:
-            for name, v in metrics['run'].items():
-                self.wandb_run.log({f'run/{name}': v})
-                append_to_field(self.records, f'run/{name}', to_num(v))
-            for data_type in ['train', 'val']:
-                for net_type in ['G', 'D']:
-                    for name, v in metrics[data_type][net_type].items():
-                        key_label = f'{data_type}/{net_type}/{name}'
-                        self.wandb_run.log({key_label: v})
-                        append_to_field(self.records, key_label, v)
-            append_to_field(self.records, 'i', i)
+        for name, v in metrics['run'].items():
+            self.wandb_run.log({f'run/{name}': v})
+            append_to_field(self.records, f'run/{name}', to_num(v))
+        for data_type in ['train', 'val']:
+            for net_type in ['G', 'D']:
+                for name, v in metrics[data_type][net_type].items():
+                    key_label = f'{data_type}/{net_type}/{name}'
+                    self.wandb_run.log({key_label: v})
+                    append_to_field(self.records, key_label, v)
+        append_to_field(self.records, 'i', i)
 
-            loss_terms_D = [('D_Loss_Total', 'train/D/loss_D', 1),
-                            ('D_Loss_on_Fake', 'train/D/loss_D_classify_fake', 1),
-                            ('D_Loss_on_Real', 'train/D/loss_D_classify_real', 1),
-                            ('Lam*(Weights_Norm)', 'train/D/loss_D_weights_norm',
-                             opt.lamb_loss_D_weights_norm,
-                             ('Lam*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
-                              opt.lamb_loss_D_grad_penalty))
-                            ]
-            self.plot_weighted_loss_summary(loss_terms_D, 'D_Train_Losses_Weighted')
+        loss_terms_D = [('D_Loss_Total', 'train/D/loss_D', 1),
+                        ('D_Loss_on_Fake', 'train/D/loss_D_classify_fake', 1),
+                        ('D_Loss_on_Real', 'train/D/loss_D_classify_real', 1),
+                        ('Lam*(Weights_Norm)', 'train/D/loss_D_weights_norm',
+                         opt.lamb_loss_D_weights_norm,
+                         ('Lam*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
+                          opt.lamb_loss_D_grad_penalty))
+                        ]
+        self.plot_weighted_loss_summary(loss_terms_D, 'D_Train_Losses_Weighted')
 
-            loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
-                            ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
-                            ('Lam*(G_Loss_Feat_Match', "train/G/loss_G_feat_match",
-                             opt.lamb_loss_G_feat_match),
-                            ('Lam*(Weights_Norm)', "train/G/loss_G_weights_norm",
-                             opt.lamb_loss_G_weights_norm),
-                            ]
-            self.plot_weighted_loss_summary(loss_terms_G, 'G_Train_Losses_Weighted')
+        loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
+                        ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
+                        ('Lam*(G_Loss_Feat_Match', "train/G/loss_G_feat_match",
+                         opt.lamb_loss_G_feat_match),
+                        ('Lam*(Weights_Norm)', "train/G/loss_G_weights_norm",
+                         opt.lamb_loss_G_weights_norm),
+                        ]
+        self.plot_weighted_loss_summary(loss_terms_G, 'G_Train_Losses_Weighted')
 
     # ==========================================================================
 
@@ -158,27 +159,13 @@ class Visualizer:
 
     # ==========================================================================
 
-    def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen,
-                                file_type='jpg'):
+    def display_current_results(self, model, i, opt, train_conditioning, train_real_actors, val_data_gen):
         """Display current results
 b
          """
-        fig_index = i
-        self.plotted_inds.append(fig_index)
-        visuals_dict, wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
-
-        if self.use_wandb and opt.num_last_images_save_wandb > 0:
-            for log_label, log_data in wandb_logs.items():
-                self.wandb_run.log({log_label: log_data})
-
-        # save images to an HTML file if they haven't been saved.
-        if opt.num_last_images_save_local:
-            # save images to the disk
-            for label, image in visuals_dict.items():
-                image_numpy = util.tensor2im(image)
-                img_path = os.path.join(self.img_dir, f'i{i % opt.num_last_images_save_local}_{label}.{file_type}')
-                util.save_image(image_numpy, img_path)
-        print(f'Figure saved for iteration #{i + 1}')
+        wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
+        for log_label, log_data in wandb_logs.items():
+            self.wandb_run.log({log_label: log_data})
 
         ##############################################################################################
 
@@ -192,41 +179,32 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     validation_batch = get_next_batch_cyclic(val_data_gen)
     val_conditioning, val_real_actors = validation_batch['conditioning'], validation_batch['agents_feat_vecs']
 
-    scenes_batches_dict = {'train': (train_real_actors, train_conditioning), 'val': (val_real_actors, val_conditioning)}
     wandb_logs = {}
-    visuals_dict = {}
-    if opt.num_last_images_save_local == 0 and opt.num_last_images_save_wandb == 0:
-        return visuals_dict, wandb_logs
+    if opt.num_last_images_to_save <= 0:
+        return wandb_logs
     model.eval()
-    save_id_local = i % opt.num_last_images_save_local
-    save_id_wandb = i % opt.num_last_images_save_wandb
-    for dataset_name, scenes_batch in scenes_batches_dict.items():
-        real_agents_vecs_batch, conditioning_batch = scenes_batch
+    for dataset_name, real_agents_vecs_batch, conditioning_batch \
+            in [('train', train_real_actors, train_conditioning), ('val', val_real_actors, val_conditioning)]:
         for i_map in range(vis_n_maps):
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
-
-            # Add an image of the map & real agents to wandb logs
-            log_label = f"{dataset_name}_images/id_{save_id_wandb}_map_{i_map + 1}"
+            # create an image of the map & real agents
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real',
                                              title=f'map_{i_map + 1}_real')
-            visuals_dict[f'{save_id_local}_{dataset_name}_map_{i_map + 1}_real_agents'] = img
-            if opt.use_wandb:
-                wandb_logs[log_label] = [wandb_img]
-
+            log_label = f"{dataset_name}_images/id_{i % opt.num_last_images_save_wandb}_map_{i_map + 1}"
+            wandb_logs[log_label] = [wandb_img]
             for i_generator_run in range(vis_n_generator_runs):
+                # create an image of the map & fake agents
                 fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
                                                  label=f'fake_{1 + i_generator_run}',
                                                  title=f'map_{i_map + 1}_fake_{1 + i_generator_run}')
-                visuals_dict[f'{save_id_local}_{dataset_name}_map_{i_map + 1}_fake_{i_generator_run + 1}'] = img
-                if opt.use_wandb:
-                    wandb_logs[log_label].append(wandb_img)
+                wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:
         model.train()
-    return visuals_dict, wandb_logs
+    return
 
 ##############################################################################################
 

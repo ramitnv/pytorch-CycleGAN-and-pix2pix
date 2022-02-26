@@ -10,7 +10,6 @@ $ python -m avsg_train
 
 * To use wandb logging,
 run $ wandb login
-and add run parameter --use_wandb
 
 * Name the experiment with --name
 
@@ -79,3 +78,4 @@ if __name__ == '__main__':
 
         print(f'End of iteration {i + 1}/{opt.n_iter}'
               f', iter run time {(time.time() - iter_start_time):.2f} sec')
+    visualizer.wandb_run.finish()

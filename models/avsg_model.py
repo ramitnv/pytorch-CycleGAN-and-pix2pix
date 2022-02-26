@@ -101,7 +101,7 @@ class AvsgModel(BaseModel):
         """
         BaseModel.__init__(self, opt)  # call the initialization method of BaseModel
         opt.device = self.device
-        self.use_wandb = opt.use_wandb
+        self.wandb_online = opt.wandb_online
 
         # specify the models you want to save to the disk.
         # The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>

@@ -18,8 +18,7 @@ class TrainOptions(BaseOptions):
                             help='frequency of showing training results on screen')
         parser.add_argument('--print_freq', type=int, default=5,
                             help='frequency of showing training results on console')
-        parser.add_argument('--num_last_images_save_local', type=int, default=0, help='')
-        parser.add_argument('--num_last_images_save_wandb', type=int, default=10, help='')
+        parser.add_argument('--num_last_images_to_save', type=int, default=10, help='')
 
         # network saving and loading parameters
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
