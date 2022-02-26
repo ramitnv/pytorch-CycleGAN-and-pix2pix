@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/train.py" />
-    <option name="PARAMETERS" value="--name 2022_XX_XX  --data_path_train datasets/avsg_data/l5kit_train_full  --data_path_val datasets/avsg_data/l5kit_validation" />
+    <option name="PARAMETERS" value="--name tmp  --data_path_train datasets/avsg_data/l5kit_train_full  --data_path_val datasets/avsg_data/l5kit_validation" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="true" />
     <option name="MODULE_MODE" value="false" />
