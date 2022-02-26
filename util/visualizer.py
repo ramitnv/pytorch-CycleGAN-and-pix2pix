@@ -145,7 +145,7 @@ class Visualizer:
             if loss_name not in self.records.keys():
                 continue
             loss_seq = np.array(self.records[loss_name]) * loss_lambda_weight
-            plt.plot(iter_grid, loss_seq, label='summary/'+ loss_label)
+            plt.plot(iter_grid, loss_seq, label=loss_label)
         plt.legend()
         self.wandb_run.log({log_name: plt})
 
