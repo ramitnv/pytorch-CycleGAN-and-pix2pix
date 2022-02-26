@@ -1,7 +1,7 @@
+import sys
 import os
 import time
 import warnings
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,12 +11,12 @@ from data.avsg_utils import agents_feat_vecs_to_dicts, get_agents_descriptions, 
 from data.data_func import get_next_batch_cyclic
 from util.avsg_visualization_utils import visualize_scene_feat
 from util.util import append_to_field, num_to_str, to_num
-from . import util
 
 import wandb
 
 warnings.filterwarnings("ignore", "I found a path object that I don't think is part of a bar chart. Ignoring.")
 
+is_windows = hasattr(sys, 'getwindowsversion')
 ##############################################################################################
 
 class Visualizer:
@@ -166,6 +166,8 @@ b
         wandb_logs = get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen)
         if wandb_logs:
             for log_label, log_data in wandb_logs.items():
+                if is_windows:  # https://stackoverflow.com/q/70615413
+                    log_label.replace('/', '_')
                 self.wandb_run.log({log_label: log_data})
 
         ##############################################################################################
