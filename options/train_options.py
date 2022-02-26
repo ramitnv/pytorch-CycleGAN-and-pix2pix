@@ -15,10 +15,9 @@ class TrainOptions(BaseOptions):
         parser = BaseOptions.initialize(self, parser)
         #   visualization parameters
         parser.add_argument('--display_freq', type=int, default=200,
-                            help='frequency of showing training results on screen')
+                            help='frequency of generating visualization images (non-positive number = no images')
         parser.add_argument('--print_freq', type=int, default=5,
                             help='frequency of showing training results on console')
-        parser.add_argument('--num_last_images_to_save', type=int, default=10, help='')
 
         # network saving and loading parameters
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')

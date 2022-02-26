@@ -17,11 +17,12 @@ import wandb
 warnings.filterwarnings("ignore", "I found a path object that I don't think is part of a bar chart. Ignoring.")
 
 is_windows = hasattr(sys, 'getwindowsversion')
+
+
 ##############################################################################################
 
 class Visualizer:
     """This class includes several functions that can display/save images and print/save logging information.
-
      """
 
     # ==========================================================================
@@ -49,8 +50,6 @@ class Visualizer:
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
-
-    # ==========================================================================
 
     # ==========================================================================
 
@@ -173,7 +172,6 @@ b
         ##############################################################################################
 
 
-
 def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen):
     """Return visualization images. train.py will display these images with visdom, and save the images  """
 
@@ -183,7 +181,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     val_conditioning, val_real_actors = validation_batch['conditioning'], validation_batch['agents_feat_vecs']
 
     wandb_logs = {}
-    if opt.num_last_images_to_save <= 0:
+    if opt.display_freq <= 0:
         return wandb_logs
     model.eval()
     for dataset_name, real_agents_vecs_batch, conditioning_batch \
@@ -193,39 +191,38 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)
             # create an image of the map & real agents
-            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, label='real',
-                                             title=f'map_{i_map + 1}_real')
-            log_label = f"{dataset_name}_images/id_{i % opt.num_last_images_to_save}_map_{i_map + 1}"
+            img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, caption_prefix='real',
+                                             title=f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real')
+            log_label = f"images/{dataset_name}"
             wandb_logs[log_label] = [wandb_img]
             for i_generator_run in range(vis_n_generator_runs):
                 # create an image of the map & fake agents
                 fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
                 # Add an image of the map & fake agents to wandb logs
                 img, wandb_img = get_wandb_image(model, conditioning, fake_agents_vecs, opt,
-                                                 label=f'fake_{1 + i_generator_run}',
-                                                 title=f'map_{i_map + 1}_fake_{1 + i_generator_run}')
+                                                 caption_prefix=f'fake_{1 + i_generator_run}',
+                                                 title=f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_fake_{1 + i_generator_run}')
                 wandb_logs[log_label].append(wandb_img)
     if opt.isTrain:
         model.train()
     return wandb_logs
 
-##############################################################################################
 
+##############################################################################################
 
 
 #########################################################################################
 
-def get_wandb_image(model, conditioning, agents_vecs, opt, label='real_agents', title=''):
+def get_wandb_image(model, conditioning, agents_vecs, opt, caption_prefix='real_agents', title=''):
     # change data to format used for the plot function:
     agents_exists = conditioning['agents_exists']
     agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, agents_exists, opt)
     real_map = {k: v[0].detach().cpu().numpy() for k, v in conditioning['map_feat'].items()}
     img = visualize_scene_feat(agents_feat_dicts, real_map, opt, title=title)
     pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
-    caption = f'{label}\npred_is_real={pred_is_real:.2}\n'
+    caption = f'{caption_prefix}\npred_is_real={pred_is_real:.2}\n'
     caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
-
 
 ##############################################################################################
