@@ -7,9 +7,9 @@ command:
   - "--dataset_mode"
   - "avsg"
   - "--data_path_train"
-  - "~/avsg_data/l5kit_train_full"
+  - "/home/ramit/avsg_data/l5kit_train_full"
   - "--data_path_val"
-  - "~/avsg_data/l5kit_validation"
+  - "/home/ramit/avsg_data/l5kit_validation"
   - ${args}
 method: grid
 metric:
@@ -20,7 +20,5 @@ parameters:
     values: [0.001, 0.002, 0.05, 0.01]
   lr_D:
     values: [0.001, 0.002, 0.05, 0.01]
-  batch_size:
-    values: [512]
 
 
