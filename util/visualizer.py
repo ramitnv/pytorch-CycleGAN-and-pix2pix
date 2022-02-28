@@ -186,6 +186,8 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     model.eval()
     for dataset_name, real_agents_vecs_batch, conditioning_batch \
             in [('train', train_real_actors, train_conditioning), ('val', val_real_actors, val_conditioning)]:
+        log_label = f"images/{dataset_name}"
+        wandb_logs[log_label] = []
         for i_map in range(vis_n_maps):
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
@@ -193,8 +195,7 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
             # create an image of the map & real agents
             img, wandb_img = get_wandb_image(model, conditioning, real_agents_vecs, opt, caption_prefix='real',
                                              title=f'{dataset_name}_iter_{i + 1}_map_{i_map + 1}_real')
-            log_label = f"images/{dataset_name}"
-            wandb_logs[log_label] = [wandb_img]
+            wandb_logs[log_label].append(wandb_img)
             for i_generator_run in range(vis_n_generator_runs):
                 # create an image of the map & fake agents
                 fake_agents_vecs = model.netG(conditioning).detach()  # detach since we don't backpropp
