@@ -186,9 +186,9 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
     model.eval()
     for dataset_name, real_agents_vecs_batch, conditioning_batch \
             in [('train', train_real_actors, train_conditioning), ('val', val_real_actors, val_conditioning)]:
-        log_label = f"images/{dataset_name}"
-        wandb_logs[log_label] = []
         for i_map in range(vis_n_maps):
+            log_label = f"images/{dataset_name}/map_{i_map}"
+            wandb_logs[log_label] = []
             # take data of current scene:
             real_agents_vecs = real_agents_vecs_batch[i_map].unsqueeze(0)
             conditioning = get_single_conditioning_from_batch(conditioning_batch, i_map)

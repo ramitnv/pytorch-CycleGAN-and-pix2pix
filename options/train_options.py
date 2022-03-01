@@ -14,7 +14,7 @@ class TrainOptions(BaseOptions):
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
         #   visualization parameters
-        parser.add_argument('--display_freq', type=int, default=200,
+        parser.add_argument('--display_freq', type=int, default=500,
                             help='frequency of generating visualization images (non-positive number = no images')
         parser.add_argument('--print_freq', type=int, default=5,
                             help='frequency of showing training results on console')
