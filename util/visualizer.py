@@ -37,6 +37,8 @@ class Visualizer:
         self.wandb_online = opt.wandb_online
         self.records = {}
         exp_name = opt.name
+        if exp_name == 'no_name':
+            exp_name = None # so that wandb will use a random name
         if self.wandb_online:
             # https://docs.wandb.ai/guides/track/advanced/environment-variables
             os.environ["WANDB_MODE"] = "run"

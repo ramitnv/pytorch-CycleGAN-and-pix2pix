@@ -4,6 +4,8 @@ command:
   - ${interpreter}
   - ${program}
   - "--wandb_online"
+  - - "--name"
+    - "no_name"
   - "--dataset_mode"
   - "toy"
   - "--n_iter"

@@ -4,12 +4,16 @@ command:
   - ${interpreter}
   - ${program}
   - "--wandb_online"
+  - "--name"
+  - "no_name"
   - "--dataset_mode"
   - "avsg"
   - "--data_path_train"
   - "/home/ramit/avsg_data/l5kit_train_full"
   - "--data_path_val"
   - "/home/ramit/avsg_data/l5kit_validation"
+  - - "--n_iter"
+    - "100000"
   - ${args}
 method: grid
 metric:
