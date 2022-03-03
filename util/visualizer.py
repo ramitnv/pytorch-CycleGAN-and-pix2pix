@@ -222,8 +222,8 @@ def get_wandb_image(model, conditioning, agents_vecs, opt, caption_prefix='real_
     agents_feat_dicts = agents_feat_vecs_to_dicts(agents_vecs, agents_exists, opt)
     real_map = {k: v[0].detach().cpu().numpy() for k, v in conditioning['map_feat'].items()}
     img = visualize_scene_feat(agents_feat_dicts, real_map, opt, title=title)
-    pred_is_real = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
-    caption = f'{caption_prefix}\npred_is_real={pred_is_real:.2}\n'
+    D_real_prob = torch.sigmoid(model.netD(conditioning, agents_vecs)).item()
+    caption = f'{caption_prefix}\nD_real_prob={D_real_prob:.2}\n'
     caption += '\n'.join(get_agents_descriptions(agents_feat_dicts))
     wandb_img = wandb.Image(img, caption=caption)
     return img, wandb_img
