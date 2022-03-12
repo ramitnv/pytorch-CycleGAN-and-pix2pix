@@ -2,9 +2,9 @@
 
 * To run training:
 $ python -m avsg_train
- --dataset_mode avsg  --model avsg --data_path_train datasets/avsg_data/l5kit_sample.pkl  --data_path_val datasets/avsg_data/l5kit_sample.pkl
+ --dataset_mode avsg  --model avsg --data_path_train datasets/avsg_data/sample  --data_path_val datasets/avsg_data/sample
 
-* Replace l5kit_sample.pkl with l5kit_train.pkl or l5kit_train_full.pkl for larger datasets
+* Replace --data_path_train and for --data_path_val larger datasets
 
 * To run only on CPU add: --gpu_ids -1
 
