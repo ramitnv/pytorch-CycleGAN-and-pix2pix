@@ -26,8 +26,8 @@ class BaseOptions:
         # basic parameters
         parser.add_argument('--name', type=str, default='no_name',
                             help='name of the experiment, if "no_name", then wandb will use a random name')
-        parser.add_argument('--data_path_train', type=str, default='datasets/avsg_data/l5kit_sample', help='path to train data dir')
-        parser.add_argument('--data_path_val', type=str, default='datasets/avsg_data/l5kit_sample', help='Path for validation dataset dir')
+        parser.add_argument('--data_path_train', type=str, default='datasets/avsg_data/sample', help='path to train data dir')
+        parser.add_argument('--data_path_val', type=str, default='datasets/avsg_data/sample', help='Path for validation dataset dir')
         parser.add_argument('--wandb_online', action='store_true', help='use wandb online login')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
