@@ -11,7 +11,7 @@
 * Log in to your user
 
 # Downloading the full dataset
-* Download the the file [AVSG_Data.7z](https://drive.google.com/file/d/167Ys_Ymb7xVZXD4mxwHBetHZ5YMYhaV_/view?usp=sharing) and then extract its contents to  the 'datasets/avsg_data/' folder. 
+* Download the the file [AVSG_Data.7z](https://drive.google.com/file/d/1-5T4pc77WbUKyOOZ8C-RDR9xwx7hGwyW/view?usp=sharing) and then extract its contents to  the 'datasets/avsg_data/' folder. 
 
 # Credits:
 * Initial code was based on https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
