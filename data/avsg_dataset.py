@@ -23,7 +23,6 @@ if is_windows:
     temp = pathlib.PosixPath
     pathlib.PosixPath = pathlib.WindowsPath
 
-
 #########################################################################################
 
 
