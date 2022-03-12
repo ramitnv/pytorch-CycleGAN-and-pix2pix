@@ -167,7 +167,7 @@ b
             for log_label, log_data in wandb_logs.items():
                 self.wandb_run.log({log_label: log_data})
 
-        ##############################################################################################
+    # ==========================================================================
 
 
 def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_gen):
@@ -209,8 +209,6 @@ def get_images(model, i, opt, train_conditioning, train_real_actors, val_data_ge
 
 ##############################################################################################
 
-
-#########################################################################################
 
 def get_wandb_image(model, conditioning, agents_vecs, opt, caption_prefix='real_agents', title=''):
     # change data to format used for the plot function:
