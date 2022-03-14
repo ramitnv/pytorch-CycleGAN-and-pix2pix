@@ -87,3 +87,52 @@ class SceneGenerator(nn.Module):
         return latent_noise
 
     ###############################################################################
+
+
+
+def get_out_of_road_penalty(conditioning, agents, opt):
+    polygon_types = opt.polygon_types
+    i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
+    i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
+    i_lanes_mid = polygon_types.index('lanes_mid')
+    i_lanes_left = polygon_types.index('lanes_left')
+    i_lanes_right = polygon_types.index('lanes_right')
+    map_feat = conditioning['map_feat']
+    map_elems_points = map_feat['map_elems_points']
+    map_elems_exists = map_feat['map_elems_exists']
+    batch_size, n_polygon_types, max_num_elem, max_points_per_elem, coord_dim = map_elems_points.shape
+
+    agents_centroids_x = agents[:, :, i_centroid_x]  # [batch_size x n_agents]
+    agents_centroids_y = agents[:, :, i_centroid_y]  # [batch_size x n_agents]
+
+    lanes_mid_exists = map_elems_exists[:, i_lanes_mid]
+    lanes_left_exists = map_elems_exists[:, i_lanes_left]
+    lanes_right_exists = map_elems_exists[:, i_lanes_right]
+
+    lanes_mid_points_x = map_elems_points[:, i_lanes_mid, :, :, 0]
+    lanes_mid_points_y = map_elems_points[:, i_lanes_mid, :, :, 1]
+
+    lanes_left_points = map_elems_points[:, i_lanes_left]
+    lanes_right_points = map_elems_points[:, i_lanes_right]
+
+    # # find the closest mid-lane point to the agent centroid
+    dists_to_mid_points = torch.linalg.vector_norm(agents_centroids - lanes_mid_points, dim=2)   # [batch_size x n_agents]\
+
+
+    # i_min_dist_to_mid = dists_to_mid_points.argmin()
+    # mid_point = lanes_mid_points[i_min_dist_to_mid]
+    #
+    # # disqualify the point if there is any left-lane or right-lane point closer to mid_point than the centroid
+    # min_dist_to_left = np.min(np.linalg.norm(mid_point - lanes_left_points, axis=1))
+    # min_dist_to_right = np.min(np.linalg.norm(mid_point - lanes_right_points, axis=1))
+    #
+    # dist_to_centroid = np.linalg.norm(mid_point - centroid)
+    #
+    # if dist_to_centroid > min_dist_to_left or dist_to_centroid > min_dist_to_right:
+    #     if verbose:
+    #         print(f'Agent {agent_name} discarded, dist_to_centroid: {dist_to_centroid},'
+    #               f' min_dist_to_left: {min_dist_to_left}, min_dist_to_right: {min_dist_to_right}')
+    #     return False
+    # if verbose:
+    #     print(f'Agent {agent_name} is OK')
+    return True

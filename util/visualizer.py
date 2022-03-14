@@ -115,24 +115,26 @@ class Visualizer:
                     append_to_field(self.records, key_label, v)
         append_to_field(self.records, 'i', i)
 
-        loss_terms_D = [('D_Loss_Total', 'train/D/loss_D', 1),
-                        ('D_Loss_on_Fake', 'train/D/loss_D_classify_fake', 1),
-                        ('D_Loss_on_Real', 'train/D/loss_D_classify_real', 1),
-                        ('Lam*(Weights_Norm)', 'train/D/loss_D_weights_norm',
+        loss_terms_D = [('D_loss_total', 'train/D/loss_D', 1),
+                        ('D_loss_on_fake', 'train/D/loss_D_classify_fake', 1),
+                        ('D_loss_on_real', 'train/D/loss_D_classify_real', 1),
+                        ('lamb*(weights_norm)', 'train/D/loss_D_weights_norm',
                          opt.lamb_loss_D_weights_norm,
-                         ('Lam*(Grad_Penalty)', 'train/D/loss_D_grad_penalty',
+                         ('lamb*(grad_penalty)', 'train/D/loss_D_grad_penalty',
                           opt.lamb_loss_D_grad_penalty))
                         ]
-        self.plot_weighted_loss_summary(loss_terms_D, 'D_Train_Losses_Weighted')
+        self.plot_weighted_loss_summary(loss_terms_D, 'D_weighted_losses')
 
-        loss_terms_G = [('G_Loss_Total', 'train/G/loss_G', 1),
-                        ('G_Loss_GAN', "train/G/loss_G_GAN", 1),
-                        ('Lam*(G_Loss_Feat_Match', "train/G/loss_G_feat_match",
+        loss_terms_G = [('G_loss_total', 'train/G/loss_G', 1),
+                        ('G_loss_GAN', "train/G/loss_G_GAN", 1),
+                        ('lamb*(G_loss_feat_match', "train/G/loss_G_feat_match",
                          opt.lamb_loss_G_feat_match),
-                        ('Lam*(Weights_Norm)', "train/G/loss_G_weights_norm",
+                        ('lamb*(weights_norm)', "train/G/loss_G_weights_norm",
                          opt.lamb_loss_G_weights_norm),
+                        ('lamb*(loss_G_out_of_road)', "train/G/loss_G_out_of_road",
+                         opt.lamb_loss_G_out_of_road),
                         ]
-        self.plot_weighted_loss_summary(loss_terms_G, 'G_Train_Losses_Weighted')
+        self.plot_weighted_loss_summary(loss_terms_G, 'G_weighted_losses')
 
     # ==========================================================================
 
