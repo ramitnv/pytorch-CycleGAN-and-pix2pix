@@ -128,20 +128,14 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # find the closest mid-lane point to each agent
     i_closest_mid = dists_to_mid_points.argmin(dim=2)
-    lanes_mid_points = lanes_mid_points[:, 0, :, :, :]  #    [batch_size, max_num_elem, max_points_per_elem, coord_dim]
-    lanes_mid_points = lanes_mid_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    closest_mid_points = lanes_mid_points[i_closest_mid]
+    i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
+    lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
+    lanes_mid_points = lanes_mid_points.reshape(batch_size*max_n_agents, max_num_elem*max_points_per_elem, coord_dim)
+    closest_mid_points = lanes_mid_points[torch.arange(lanes_mid_points.shape[0]), i_closest_mid, :]
+    closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
 
-    pass
+    # disqualify the point if there is any left-lane or right-lane point closer to mid_point than the centroid
 
-    # [lanes_mid_exists]
-    # lanes_mid_points_y = map_elems_points[:, i_lanes_mid, :, :, 1][lanes_mid_exists]
-
-
-    # i_min_dist_to_mid = dists_to_mid_points.argmin()
-    # mid_point = lanes_mid_points[i_min_dist_to_mid]
-    #
-    # # disqualify the point if there is any left-lane or right-lane point closer to mid_point than the centroid
     # min_dist_to_left = np.min(np.linalg.norm(mid_point - lanes_left_points, axis=1))
     # min_dist_to_right = np.min(np.linalg.norm(mid_point - lanes_right_points, axis=1))
     #
