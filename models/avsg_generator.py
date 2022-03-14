@@ -101,32 +101,41 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     map_elems_points = map_feat['map_elems_points']
     map_elems_exists = map_feat['map_elems_exists']
     batch_size, n_polygon_types, max_num_elem, max_points_per_elem, coord_dim = map_elems_points.shape
-
     agents_exists = conditioning['agents_exists']
     n_agents_in_scene = conditioning['n_agents_in_scene']
     max_n_agents = agents.shape[1]
 
-    # Now we transform the tensor to be with a common dimensions
-    # [batch_size, max_num_elem, max_points_per_elem, max_n_agents, coord_dim]
-    agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]].unsqueeze(1).unsqueeze(1).\
-        expand(-1, max_num_elem, max_points_per_elem, -1, -1)
+    # Get lanes points, set infinity in non-valid coordinates
+    lanes_mid_points = map_elems_points[:, i_lanes_mid]
+    lanes_mid_points[torch.logical_not(map_elems_exists[:, i_lanes_mid])] = torch.inf
+    lanes_left_points = map_elems_points[:, i_lanes_left]
+    lanes_left_points[torch.logical_not(map_elems_exists[:, i_lanes_left])] = torch.inf
+    lanes_right_points = map_elems_points[:, i_lanes_right]
+    lanes_right_points[torch.logical_not(map_elems_exists[:, i_lanes_right])] = torch.inf
 
-    lanes_mid_points = map_elems_points[:, i_lanes_mid].unsqueeze(3).expand(-1, -1, -1, max_n_agents, -1)
+    # Get agents centroids, set infinity in non-valid coordinates
+    agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
+    agents_centroids[torch.logical_not(agents_exists)] = torch.inf
 
-    dists_to_mid_points = torch.linalg.vector_norm(agents_centroids - lanes_mid_points, dim=2)   # [batch_size x n_agents]\
+    ###  Now we transform the tensors to be with a common dimensions of
+    #    [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
+    agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).expand(-1, -1, max_num_elem, max_points_per_elem, -1)
+    lanes_mid_points = lanes_mid_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1, -1)
 
+    #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
+    dists_to_mid_points = torch.linalg.vector_norm(agents_centroids - lanes_mid_points, dim=-1)
+    dists_to_mid_points = dists_to_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem)
 
-    lanes_mid_exists = map_elems_exists[:, i_lanes_mid].unsqueeze(-1).unsqueeze(-1).expand(-1, -1, max_points_per_elem, 2)
-    lanes_left_exists = map_elems_exists[:, i_lanes_left].unsqueeze(-1).unsqueeze(-1).expand(-1, -1, max_points_per_elem, 2)
-    lanes_right_exists = map_elems_exists[:, i_lanes_right].unsqueeze(-1).unsqueeze(-1).expand(-1, -1, max_points_per_elem, 2)
+    # find the closest mid-lane point to each agent
+    i_closest_mid = dists_to_mid_points.argmin(dim=2)
+    lanes_mid_points = lanes_mid_points[:, 0, :, :, :]  #    [batch_size, max_num_elem, max_points_per_elem, coord_dim]
+    lanes_mid_points = lanes_mid_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
+    closest_mid_points = lanes_mid_points[i_closest_mid]
 
+    pass
 
     # [lanes_mid_exists]
     # lanes_mid_points_y = map_elems_points[:, i_lanes_mid, :, :, 1][lanes_mid_exists]
-    # lanes_left_points = map_elems_points[:, i_lanes_left]
-    # lanes_right_points = map_elems_points[:, i_lanes_right]
-
-    # # find the closest mid-lane point to the agent centroid
 
 
     # i_min_dist_to_mid = dists_to_mid_points.argmin()
@@ -145,4 +154,4 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     #     return False
     # if verbose:
     #     print(f'Agent {agent_name} is OK')
-    return True
+    return torch.zeros(1)

@@ -219,12 +219,11 @@ class AvsgModel(BaseModel):
 
         loss_G_out_of_road = get_out_of_road_penalty(conditioning, fake_agents, opt)
 
-
         # combine losses
         reg_total = sum_regularization_terms(
             [(opt.lamb_loss_G_feat_match, loss_G_feat_match),
-             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm,
-              opt.lamb_loss_G_out_of_road, loss_G_out_of_road)])
+             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
+             (opt.lamb_loss_G_out_of_road, loss_G_out_of_road)])
 
         loss_G = loss_G_GAN + reg_total
 
