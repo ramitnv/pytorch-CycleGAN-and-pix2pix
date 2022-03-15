@@ -113,21 +113,26 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # Get agents centroids, set infinity in non-valid coordinates
     agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
-    agents_centroids[torch.logical_not(agents_exists)] = torch.inf
 
     ###  Now we transform the tensors to be with a common dimensions of
     #    [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
-    agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).expand(-1, -1, max_num_elem, max_points_per_elem, -1)
-    lanes_mid_points = lanes_mid_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1, -1)
+    agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).repeat(1, 1, max_num_elem, max_points_per_elem, 1)
+    lanes_mid_points = lanes_mid_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1, 1)
+    # NOTE: be careful!!! don't use expand on tensors with backprop, only on constants. use torch.repeat instead
 
     #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
     d_sqr_agent_to_mid = ((agents_centroids - lanes_mid_points) ** 2).sum(dim=-1)
+    agents_centroids = agents_centroids[:, :, 0, 0, :]
+    d_sqr_agent_to_mid[torch.logical_not(agents_exists)] = torch.inf
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,
                                                  max_num_elem * max_points_per_elem)
 
     # find the closest mid-lane point to each agent
     min_dists_sqr_agent_to_mid_points = d_sqr_agent_to_mid.min(dim=2)
-    i_closest_mid = min_dists_sqr_agent_to_mid_points.indices
+    i_closest_mid = min_dists_sqr_agent_to_mid_points.indices.detach()
+    # note that we detached i_closest_mid since taking a grad of an argmin gives nans
+    d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values
+
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
     lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
     lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
@@ -137,20 +142,23 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
     lanes_left_points = lanes_left_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_left_points = lanes_left_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
+    lanes_left_points = lanes_left_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1)
     lanes_right_points = lanes_right_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_right_points = lanes_right_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
-    closest_mid_points = closest_mid_points.unsqueeze(2).expand(-1, -1, max_num_elem * max_points_per_elem, -1)
+    lanes_right_points = lanes_right_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1)
+    closest_mid_points = closest_mid_points.unsqueeze(2).repeat(1, 1, max_num_elem * max_points_per_elem, 1)
     d_sqr_agent_to_left = ((lanes_left_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
     d_sqr_agent_to_right = ((lanes_right_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
 
-    d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values.flatten()
     d_sqr_agent_to_left = d_sqr_agent_to_left.flatten()
     d_sqr_agent_to_right = d_sqr_agent_to_right.flatten()
+    d_sqr_agent_to_mid = d_sqr_agent_to_mid.flatten()
     invalids = torch.isinf(d_sqr_agent_to_mid) + torch.isnan(d_sqr_agent_to_mid) \
                + torch.isinf(d_sqr_agent_to_left) + torch.isnan(d_sqr_agent_to_left) \
                + torch.isinf(d_sqr_agent_to_right) + torch.isnan(d_sqr_agent_to_right)
     valids = torch.logical_not(invalids)
+    # torch.nan_to_num(d_sqr_agent_to_mid)
+    # torch.nan_to_num(d_sqr_agent_to_left)
+    # torch.nan_to_num(d_sqr_agent_to_right)
     f_relu = nn.ReLU()
     penalty = f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_left[valids]).sum() \
               + f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_right[valids]).sum()
