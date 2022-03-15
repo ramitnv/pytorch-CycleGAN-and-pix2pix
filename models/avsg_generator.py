@@ -105,59 +105,70 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # Get lanes points, set infinity in non-valid coordinates
     lanes_mid_points = map_elems_points[:, i_lanes_mid]
-    lanes_mid_points[torch.logical_not(map_elems_exists[:, i_lanes_mid])] = torch.inf
     lanes_left_points = map_elems_points[:, i_lanes_left]
-    lanes_left_points[torch.logical_not(map_elems_exists[:, i_lanes_left])] = torch.inf
     lanes_right_points = map_elems_points[:, i_lanes_right]
-    lanes_right_points[torch.logical_not(map_elems_exists[:, i_lanes_right])] = torch.inf
 
     # Get agents centroids, set infinity in non-valid coordinates
     agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
 
     ###  Now we transform the tensors to be with a common dimensions of
     #    [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
-    agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).repeat(1, 1, max_num_elem, max_points_per_elem, 1)
-    lanes_mid_points = lanes_mid_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1, 1)
-    #TODO: consider using expand instead of torch.repeat
+    agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).expand(-1, -1, max_num_elem, max_points_per_elem, -1)
+    lanes_mid_points = lanes_mid_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1, -1)
 
     #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
     d_sqr_agent_to_mid = (agents_centroids - lanes_mid_points).square().sum(dim=-1)
+
+    # Set distance=inf in non-existent agents and points
     d_sqr_agent_to_mid[torch.logical_not(agents_exists)] = torch.inf
-    d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,
-                                                 max_num_elem * max_points_per_elem)
+    invalids = torch.logical_not(map_elems_exists[:, i_lanes_mid])
+    invalids = invalids.unsqueeze(1).unsqueeze(-1).expand(-1, max_n_agents, -1, max_points_per_elem)
+    d_sqr_agent_to_mid[invalids] = torch.inf
 
     # find the closest mid-lane point to each agent
+    d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,  max_num_elem * max_points_per_elem)
     min_dists_sqr_agent_to_mid_points = d_sqr_agent_to_mid.min(dim=2)
     i_closest_mid = min_dists_sqr_agent_to_mid_points.indices.detach()
-    # note that we detached i_closest_mid since taking a grad of an argmin gives nans
+    # note that we detached i_closest_mid since we are taking a grad w.r.t value of min only
     d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values
 
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
     lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
-                                                coord_dim)
+    lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
     closest_mid_points = lanes_mid_points[torch.arange(lanes_mid_points.shape[0]), i_closest_mid, :]
     closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
 
-    # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
     lanes_left_points = lanes_left_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_left_points = lanes_left_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1)
+    lanes_left_points = lanes_left_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
     lanes_right_points = lanes_right_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_right_points = lanes_right_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1)
-    closest_mid_points = closest_mid_points.unsqueeze(2).repeat(1, 1, max_num_elem * max_points_per_elem, 1)
-    d_sqr_agent_to_left = (lanes_left_points - closest_mid_points).square().sum(dim=-1).min(dim=-1).values
-    d_sqr_agent_to_right = (lanes_right_points - closest_mid_points).square().sum(dim=-1).min(dim=-1).values
+    lanes_right_points = lanes_right_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
+    closest_mid_points = closest_mid_points.unsqueeze(2).expand(-1, -1, max_num_elem * max_points_per_elem, -1)
+
+    d_sqr_agent_to_left = (lanes_left_points - closest_mid_points).square().sum(dim=-1)
+    d_sqr_agent_to_right = (lanes_right_points - closest_mid_points).square().sum(dim=-1)
+
+    # Set distance=inf in non-existent points
+    invalids = torch.logical_not(map_elems_exists[:, i_lanes_left])
+    invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
+    d_sqr_agent_to_left[invalids] = torch.inf
+    invalids = torch.logical_not(map_elems_exists[:, i_lanes_right])
+    invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
+    d_sqr_agent_to_right[invalids] = torch.inf
+
+    # find min dist from the "closest_mid_points" to a left \ right lane point
+    d_sqr_agent_to_left = d_sqr_agent_to_left.min(dim=-1).values
+    d_sqr_agent_to_right = d_sqr_agent_to_right.min(dim=-1).values
 
     d_sqr_agent_to_left = d_sqr_agent_to_left.flatten()
     d_sqr_agent_to_right = d_sqr_agent_to_right.flatten()
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.flatten()
+
+    # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
     invalids = torch.isinf(d_sqr_agent_to_mid) + torch.isnan(d_sqr_agent_to_mid) \
                + torch.isinf(d_sqr_agent_to_left) + torch.isnan(d_sqr_agent_to_left) \
                + torch.isinf(d_sqr_agent_to_right) + torch.isnan(d_sqr_agent_to_right)
     valids = torch.logical_not(invalids)
-    # torch.nan_to_num(d_sqr_agent_to_mid)
-    # torch.nan_to_num(d_sqr_agent_to_left)
-    # torch.nan_to_num(d_sqr_agent_to_right)
+
     f_relu = nn.ReLU()
     penalty = f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_left[valids]).sum() \
               + f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_right[valids]).sum()
