@@ -126,7 +126,7 @@ def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='
                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
                                     create_graph=True, retain_graph=True, only_inputs=True)
     gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
-    gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean()  # added eps
+    gradient_penalty = ((gradients + 1e-16).norm(2, dim=1) - constant).square().mean()  # added eps
     return gradient_penalty
 
 ###############################################################################

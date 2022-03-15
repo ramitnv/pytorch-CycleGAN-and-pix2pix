@@ -121,7 +121,7 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     #TODO: consider using expand instead of torch.repeat
 
     #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
-    d_sqr_agent_to_mid = ((agents_centroids - lanes_mid_points) ** 2).sum(dim=-1)
+    d_sqr_agent_to_mid = (agents_centroids - lanes_mid_points).square().sum(dim=-1)
     d_sqr_agent_to_mid[torch.logical_not(agents_exists)] = torch.inf
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,
                                                  max_num_elem * max_points_per_elem)
