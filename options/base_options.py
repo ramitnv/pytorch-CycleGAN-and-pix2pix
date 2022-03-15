@@ -31,6 +31,8 @@ class BaseOptions:
         parser.add_argument('--wandb_online', action='store_true', help='use wandb online login')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
+        parser.add_argument('--debug_autograd', action='store_true', help='enable to find autograd anomalies ')
+
 
         # model parameters
         parser.add_argument('--model', type=str, default='avsg',
@@ -131,6 +133,9 @@ class BaseOptions:
             opt.name = opt.name + suffix
 
         self.print_options(opt)
+
+        if opt.debug_autograd:
+            torch.autograd.set_detect_anomaly(True)
 
         # set gpu ids
         str_ids = opt.gpu_ids.split(',')
