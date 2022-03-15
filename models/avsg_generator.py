@@ -1,7 +1,6 @@
 import torch
 from torch import nn as nn
 from torch.nn.init import trunc_normal_
-
 from models.avsg_agents_decoder import get_agents_decoder
 from models.avsg_map_encoder import MapEncoder
 from util.helper_func import init_net
@@ -89,7 +88,6 @@ class SceneGenerator(nn.Module):
     ###############################################################################
 
 
-
 def get_out_of_road_penalty(conditioning, agents, opt):
     polygon_types = opt.polygon_types
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
@@ -123,29 +121,41 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     lanes_mid_points = lanes_mid_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1, -1)
 
     #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
-    dists_to_mid_points = torch.linalg.vector_norm(agents_centroids - lanes_mid_points, dim=-1)
-    dists_to_mid_points = dists_to_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem)
+    dists_sqr_agent_to_mid_points = ((agents_centroids - lanes_mid_points) ** 2).sum(dim=-1)
+    dists_sqr_agent_to_mid_points = dists_sqr_agent_to_mid_points.view(batch_size, max_n_agents,
+                                                                       max_num_elem * max_points_per_elem)
 
     # find the closest mid-lane point to each agent
-    i_closest_mid = dists_to_mid_points.argmin(dim=2)
+    min_dists_sqr_agent_to_mid_points = dists_sqr_agent_to_mid_points.min(dim=2)
+    i_closest_mid = min_dists_sqr_agent_to_mid_points.indices
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
     lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_mid_points = lanes_mid_points.reshape(batch_size*max_n_agents, max_num_elem*max_points_per_elem, coord_dim)
+    lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
+                                                coord_dim)
     closest_mid_points = lanes_mid_points[torch.arange(lanes_mid_points.shape[0]), i_closest_mid, :]
     closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
 
-    # disqualify the point if there is any left-lane or right-lane point closer to mid_point than the centroid
+    # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
+    lanes_left_points = lanes_left_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
+    lanes_left_points = lanes_left_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
+    lanes_right_points = lanes_right_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
+    lanes_right_points = lanes_right_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
+    closest_mid_points = closest_mid_points.unsqueeze(2).expand(-1, -1, max_num_elem * max_points_per_elem, -1)
+    dist_sqr_closest_mid_to_left = ((lanes_left_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
+    dist_sqr_closest_mid_to_right = ((lanes_right_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
+    dists_sqr_agent_to_mid_points = min_dists_sqr_agent_to_mid_points.values
+    # set zero to all non-valid coordinates
+    dists_sqr_agent_to_mid_points[torch.isinf(dists_sqr_agent_to_mid_points)] = 0
+    dist_sqr_closest_mid_to_left[torch.isinf(dist_sqr_closest_mid_to_left)] = 0
+    dist_sqr_closest_mid_to_right[torch.isinf(dist_sqr_closest_mid_to_right)] = 0
+    dists_sqr_agent_to_mid_points[torch.isnan(dists_sqr_agent_to_mid_points)] = 0
+    dist_sqr_closest_mid_to_left[torch.isnan(dist_sqr_closest_mid_to_left)] = 0
+    dist_sqr_closest_mid_to_right[torch.isnan(dist_sqr_closest_mid_to_right)] = 0
 
-    # min_dist_to_left = np.min(np.linalg.norm(mid_point - lanes_left_points, axis=1))
-    # min_dist_to_right = np.min(np.linalg.norm(mid_point - lanes_right_points, axis=1))
-    #
-    # dist_to_centroid = np.linalg.norm(mid_point - centroid)
-    #
-    # if dist_to_centroid > min_dist_to_left or dist_to_centroid > min_dist_to_right:
-    #     if verbose:
-    #         print(f'Agent {agent_name} discarded, dist_to_centroid: {dist_to_centroid},'
-    #               f' min_dist_to_left: {min_dist_to_left}, min_dist_to_right: {min_dist_to_right}')
-    #     return False
-    # if verbose:
-    #     print(f'Agent {agent_name} is OK')
-    return torch.zeros(1)
+    f_relu = nn.ReLU()
+    penalty = f_relu(dists_sqr_agent_to_mid_points - dist_sqr_closest_mid_to_left).square().sum(dim=1) \
+              + f_relu(dists_sqr_agent_to_mid_points - dist_sqr_closest_mid_to_right).square().sum(dim=1)
+    penalty = penalty.sum()  # sum over batch
+    assert not torch.any(torch.isnan(penalty))
+    assert not torch.any(torch.isinf(penalty))
+    return penalty
