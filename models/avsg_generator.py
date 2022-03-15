@@ -145,8 +145,8 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     lanes_right_points = lanes_right_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
     lanes_right_points = lanes_right_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1)
     closest_mid_points = closest_mid_points.unsqueeze(2).repeat(1, 1, max_num_elem * max_points_per_elem, 1)
-    d_sqr_agent_to_left = ((lanes_left_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
-    d_sqr_agent_to_right = ((lanes_right_points - closest_mid_points) ** 2).sum(dim=-1).min(dim=-1).values
+    d_sqr_agent_to_left = (lanes_left_points - closest_mid_points).square().sum(dim=-1).min(dim=-1).values
+    d_sqr_agent_to_right = (lanes_right_points - closest_mid_points).square().sum(dim=-1).min(dim=-1).values
 
     d_sqr_agent_to_left = d_sqr_agent_to_left.flatten()
     d_sqr_agent_to_right = d_sqr_agent_to_right.flatten()
