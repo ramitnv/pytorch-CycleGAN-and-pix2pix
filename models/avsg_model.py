@@ -19,7 +19,7 @@ You need to implement the following functions:
 import torch
 
 from models.avsg_discriminator import cal_gradient_penalty
-from models.avsg_generator import define_G
+from models.avsg_generator import define_G, get_out_of_road_penalty
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
 from .base_model import BaseModel
@@ -55,6 +55,9 @@ class AvsgModel(BaseModel):
             parser.add_argument('--use_layer_norm', type=int, default=0, help='0 or 1')
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
+
+            parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.00001, help=" ")
+
 
             # ~~~~ map encoder settings
             parser.add_argument('--dim_latent_polygon_elem', type=int, default=8, help='')
@@ -190,7 +193,8 @@ class AvsgModel(BaseModel):
                        "loss_D_classify_real": loss_D_classify_real,
                        "loss_D_grad_penalty": loss_D_grad_penalty,
                        "loss_D_weights_norm": loss_D_weights_norm,
-                       "D_logit(real)": d_out_for_real, "D_logit(fake_detach)": d_out_for_fake}
+                       "d_real": d_out_for_real,
+                       "d_fake": d_out_for_fake}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_D, log_metrics
 
@@ -199,32 +203,36 @@ class AvsgModel(BaseModel):
     def get_G_losses(self, opt, real_agents, conditioning):
         """Calculate loss terms for the generator"""
 
-        fake_actors = self.netG(conditioning)
+        fake_agents = self.netG(conditioning)
 
-        d_out_for_fake = self.netD(conditioning, fake_actors)
+        d_out_for_fake = self.netD(conditioning, fake_agents)
 
         # G aims to fool D to wrongly classify the fake sample (make D output "True")
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
 
         if opt.lamb_loss_G_feat_match > 0:
-            loss_G_feat_match = self.criterion_feat_match(fake_actors, real_agents)
+            loss_G_feat_match = self.criterion_feat_match(fake_agents, real_agents)
         else:
             loss_G_feat_match = None
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
+        loss_G_out_of_road = get_out_of_road_penalty(conditioning, fake_agents, opt)
+
         # combine losses
         reg_total = sum_regularization_terms(
             [(opt.lamb_loss_G_feat_match, loss_G_feat_match),
-             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm)])
+             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
+             (opt.lamb_loss_G_out_of_road, loss_G_out_of_road)])
 
         loss_G = loss_G_GAN + reg_total
 
         log_metrics = {"loss_G": loss_G,
                        "loss_G_GAN": loss_G_GAN,
                        "loss_G_feat_match": loss_G_feat_match,
-                       "D_logit(fake)": d_out_for_fake,
-                       "loss_G_weights_norm": loss_G_weights_norm}
+                       "d_fake": d_out_for_fake,
+                       "loss_G_weights_norm": loss_G_weights_norm,
+                       "loss_G_out_of_road": loss_G_out_of_road}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_G, log_metrics
 
