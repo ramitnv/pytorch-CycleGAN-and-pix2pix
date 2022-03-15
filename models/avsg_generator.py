@@ -118,11 +118,10 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     #    [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
     agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).repeat(1, 1, max_num_elem, max_points_per_elem, 1)
     lanes_mid_points = lanes_mid_points.unsqueeze(1).repeat(1, max_n_agents, 1, 1, 1)
-    # NOTE: be careful!!! don't use expand on tensors with backprop, only on constants. use torch.repeat instead
+    #TODO: consider using expand instead of torch.repeat
 
     #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
     d_sqr_agent_to_mid = ((agents_centroids - lanes_mid_points) ** 2).sum(dim=-1)
-    agents_centroids = agents_centroids[:, :, 0, 0, :]
     d_sqr_agent_to_mid[torch.logical_not(agents_exists)] = torch.inf
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,
                                                  max_num_elem * max_points_per_elem)
