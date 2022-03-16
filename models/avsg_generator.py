@@ -1,5 +1,7 @@
 import torch
 from torch import nn as nn
+from torch import sqrt
+from torch.nn.functional import relu, elu
 from torch.nn.init import trunc_normal_
 from models.avsg_agents_decoder import get_agents_decoder
 from models.avsg_map_encoder import MapEncoder
@@ -126,17 +128,17 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     d_sqr_agent_to_mid[invalids] = torch.inf
 
     # find the closest mid-lane point to each agent
-    d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents,  max_num_elem * max_points_per_elem)
+    d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem)
     min_dists_sqr_agent_to_mid_points = d_sqr_agent_to_mid.min(dim=2)
-    i_closest_mid = min_dists_sqr_agent_to_mid_points.indices.detach()
-    # note that we detached i_closest_mid since we are taking a grad w.r.t value of min only
-    d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values
+    i_closest_mid = min_dists_sqr_agent_to_mid_points.indices
+
+    d_sqr_agent_to_closest_mid = min_dists_sqr_agent_to_mid_points.values
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
     lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
+    lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
+                                                coord_dim)
     closest_mid_points = lanes_mid_points[torch.arange(lanes_mid_points.shape[0]), i_closest_mid, :]
     closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
-
 
     lanes_left_points = lanes_left_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
     lanes_left_points = lanes_left_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
@@ -149,26 +151,25 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     d_sqr_agent_to_right = (lanes_right_points - closest_mid_points).square().sum(dim=-1)
     invalids = torch.logical_not(map_elems_exists[:, i_lanes_left])
     invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
-    d_sqr_agent_to_left[invalids] = torch.inf     # Set distance=inf in non-existent points
+    d_sqr_agent_to_left[invalids] = torch.inf  # Set distance=inf in non-existent points
     invalids = torch.logical_not(map_elems_exists[:, i_lanes_right])
     invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
-    d_sqr_agent_to_right[invalids] = torch.inf   # Set distance=inf in non-existent points
+    d_sqr_agent_to_right[invalids] = torch.inf  # Set distance=inf in non-existent points
     d_sqr_agent_to_left = d_sqr_agent_to_left.min(dim=-1).values
     d_sqr_agent_to_right = d_sqr_agent_to_right.min(dim=-1).values
 
     # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
     d_sqr_agent_to_left = d_sqr_agent_to_left.flatten()
     d_sqr_agent_to_right = d_sqr_agent_to_right.flatten()
-    d_sqr_agent_to_mid = d_sqr_agent_to_mid.flatten()
-    invalids = torch.isinf(d_sqr_agent_to_mid) + torch.isnan(d_sqr_agent_to_mid) \
+    d_sqr_agent_to_closest_mid = d_sqr_agent_to_closest_mid.flatten()
+    invalids = torch.isinf(d_sqr_agent_to_closest_mid) + torch.isnan(d_sqr_agent_to_closest_mid) \
                + torch.isinf(d_sqr_agent_to_left) + torch.isnan(d_sqr_agent_to_left) \
                + torch.isinf(d_sqr_agent_to_right) + torch.isnan(d_sqr_agent_to_right)
     valids = torch.logical_not(invalids)
-    f_relu = nn.ReLU()
     # sum over all scenes and all agents - penalty if the agents is our of road :
-    # penalty := ReLU(dist_agent_to_mid ^ 2 - left_to_mid ^ 2) + ReLU(dist_agent_to_mid ^ 2 - right_to_mid ^ 2)
-    penalty = f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_left[valids]).sum() \
-              + f_relu(d_sqr_agent_to_mid[valids] - d_sqr_agent_to_right[valids]).sum()
+    # penalty := ReLU(dist_agent_to_mid - left_to_mid) + ReLU(dist_agent_to_mid - right_to_mid)
+    penalty = elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_left[valids])).sum() \
+              + elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_right[valids])).sum()
 
     assert not torch.isnan(penalty)
     assert not torch.isinf(penalty)
