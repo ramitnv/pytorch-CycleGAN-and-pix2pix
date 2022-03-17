@@ -113,15 +113,16 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     # Get agents centroids, set infinity in non-valid coordinates
     agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
 
-    ###  Now we transform the tensors to be with a common dimensions of
-    #    [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
+    #   Now we transform the tensors to be with a common dimensions of
+    #   [batch_size, max_n_agents, max_num_elem, max_points_per_elem, coord_dim]
     agents_centroids = agents_centroids.unsqueeze(2).unsqueeze(2).expand(-1, -1, max_num_elem, max_points_per_elem, -1)
     lanes_mid_points = lanes_mid_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1, -1)
 
-    #  Compute dists of agents centroids to mid-lane points   [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
+    #  Compute dists of agents centroids to mid-lane points
+    #  [batch_size, max_n_agents, max_num_elem, max_points_per_elem]
     d_sqr_agent_to_mid = (agents_centroids - lanes_mid_points).square().sum(dim=-1)
 
-    # Set distance=inf in non-existent agents and points
+    # Set distance=inf in non-existent agents and points, so that invalid indices wouldn't be chosen in the min()
     d_sqr_agent_to_mid[torch.logical_not(agents_exists)] = torch.inf
     invalids = torch.logical_not(map_elems_exists[:, i_lanes_mid])
     invalids = invalids.unsqueeze(1).unsqueeze(-1).expand(-1, max_n_agents, -1, max_points_per_elem)
@@ -151,6 +152,8 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     d_sqr_agent_to_right = (lanes_right_points - closest_mid_points).square().sum(dim=-1)
     invalids = torch.logical_not(map_elems_exists[:, i_lanes_left])
     invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
+
+    # Set distance=inf in non-existent agents and points, so that invalid indices wouldn't be chosen in the min()
     d_sqr_agent_to_left[invalids] = torch.inf  # Set distance=inf in non-existent points
     invalids = torch.logical_not(map_elems_exists[:, i_lanes_right])
     invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
@@ -166,8 +169,9 @@ def get_out_of_road_penalty(conditioning, agents, opt):
                + torch.isinf(d_sqr_agent_to_left) + torch.isnan(d_sqr_agent_to_left) \
                + torch.isinf(d_sqr_agent_to_right) + torch.isnan(d_sqr_agent_to_right)
     valids = torch.logical_not(invalids)
-    # sum over all scenes and all agents - penalty if the agents is our of road :
-    # penalty := ReLU(dist_agent_to_mid - left_to_mid) + ReLU(dist_agent_to_mid - right_to_mid)
+
+    # sum over all scenes and all agents the penalty for out-of-road agents
+    # penalty := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
     penalty = elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_left[valids])).sum() \
               + elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_right[valids])).sum()
 
