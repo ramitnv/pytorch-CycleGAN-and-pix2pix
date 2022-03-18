@@ -164,11 +164,11 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # find min dist from the "closest_mid_points" to a left \ right lane point
     d_sqr_mid_to_left = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_left],
-                                                              map_elems_exists[:, i_lanes_left],
-                                                              closest_mid_points)
+                                                            map_elems_exists[:, i_lanes_left],
+                                                            closest_mid_points)
     d_sqr_mid_to_right = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_right],
-                                                               map_elems_exists[:, i_lanes_right],
-                                                               closest_mid_points)
+                                                             map_elems_exists[:, i_lanes_right],
+                                                             closest_mid_points)
     # get valid indices
     d_sqr_mid_to_left = d_sqr_mid_to_left.flatten()
     d_sqr_mid_to_right = d_sqr_mid_to_right.flatten()
