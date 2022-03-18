@@ -154,8 +154,7 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem)
     min_dists_sqr_agent_to_mid_points = d_sqr_agent_to_mid.min(dim=2)
     i_closest_mid = min_dists_sqr_agent_to_mid_points.indices
-
-    d_sqr_agent_to_closest_mid = min_dists_sqr_agent_to_mid_points.values
+    d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
     lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
     lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
@@ -164,27 +163,27 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
 
     # find min dist from the "closest_mid_points" to a left \ right lane point
-    d_sqr_agent_to_left = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_left],
+    d_sqr_mid_to_left = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_left],
                                                               map_elems_exists[:, i_lanes_left],
                                                               closest_mid_points)
-    d_sqr_agent_to_right = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_right],
+    d_sqr_mid_to_right = get_distance_to_closest_lane_points(map_elems_points[:, i_lanes_right],
                                                                map_elems_exists[:, i_lanes_right],
                                                                closest_mid_points)
     # get valid indices
-    d_sqr_agent_to_left = d_sqr_agent_to_left.flatten()
-    d_sqr_agent_to_right = d_sqr_agent_to_right.flatten()
-    d_sqr_agent_to_closest_mid = d_sqr_agent_to_closest_mid.flatten()
-    invalids = torch.isinf(d_sqr_agent_to_closest_mid) + torch.isnan(d_sqr_agent_to_closest_mid) \
-               + torch.isinf(d_sqr_agent_to_left) + torch.isnan(d_sqr_agent_to_left) \
-               + torch.isinf(d_sqr_agent_to_right) + torch.isnan(d_sqr_agent_to_right)
+    d_sqr_mid_to_left = d_sqr_mid_to_left.flatten()
+    d_sqr_mid_to_right = d_sqr_mid_to_right.flatten()
+    d_sqr_agent_to_mid = d_sqr_agent_to_mid.flatten()
+    invalids = torch.isinf(d_sqr_agent_to_mid) + torch.isnan(d_sqr_agent_to_mid) \
+               + torch.isinf(d_sqr_mid_to_left) + torch.isnan(d_sqr_mid_to_left) \
+               + torch.isinf(d_sqr_mid_to_right) + torch.isnan(d_sqr_mid_to_right)
     valids = torch.logical_not(invalids)
 
     # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
 
     # sum over all scenes and all agents the penalty for out-of-road agents
     # penalty := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
-    penalty = elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_left[valids])).sum() \
-              + elu(sqrt(d_sqr_agent_to_closest_mid[valids]) - sqrt(d_sqr_agent_to_right[valids])).sum()
+    penalty = elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_left[valids])).sum() \
+              + elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_right[valids])).sum()
 
     assert not torch.isnan(penalty)
     assert not torch.isinf(penalty)
