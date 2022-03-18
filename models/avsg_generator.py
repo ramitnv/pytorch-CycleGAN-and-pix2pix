@@ -185,6 +185,4 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     penalty = elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_left[valids])).sum() \
               + elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_right[valids])).sum()
 
-    assert not torch.isnan(penalty)
-    assert not torch.isinf(penalty)
     return penalty
