@@ -149,7 +149,7 @@ class Visualizer:
             loss_seq = np.array(self.records[loss_name]) * loss_lambda_weight
             plt.plot(iter_grid, loss_seq, label=loss_label)
         plt.legend()
-        self.wandb_run.log({log_name: plt})
+        self.wandb_run.log({log_name: plt}, commit=False)
 
     # =========================================================== ===============
 
