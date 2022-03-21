@@ -150,15 +150,15 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     invalids = invalids.unsqueeze(1).unsqueeze(-1).expand(-1, max_n_agents, -1, max_points_per_elem)
     d_sqr_agent_to_mid[invalids] = torch.inf
 
-    # find the closest mid-lane point to each agent
+    # find the indices of the closest mid-lane point to each agent
     d_sqr_agent_to_mid = d_sqr_agent_to_mid.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem)
     min_dists_sqr_agent_to_mid_points = d_sqr_agent_to_mid.min(dim=2)
     i_closest_mid = min_dists_sqr_agent_to_mid_points.indices
     d_sqr_agent_to_mid = min_dists_sqr_agent_to_mid_points.values
     i_closest_mid = i_closest_mid.view(batch_size * max_n_agents)
-    lanes_mid_points = lanes_mid_points.view(batch_size, max_n_agents, max_num_elem * max_points_per_elem, coord_dim)
     lanes_mid_points = lanes_mid_points.reshape(batch_size * max_n_agents, max_num_elem * max_points_per_elem,
                                                 coord_dim)
+    # Select the mid-lane points with minimal distance per agent:
     closest_mid_points = lanes_mid_points[torch.arange(lanes_mid_points.shape[0]), i_closest_mid, :]
     closest_mid_points = closest_mid_points.view(batch_size, max_n_agents, coord_dim)
 
