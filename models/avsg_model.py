@@ -20,9 +20,9 @@ import torch
 
 from models.avsg_discriminator import cal_gradient_penalty
 from models.avsg_generator import define_G
-from .avsg_func import get_out_of_road_penalty
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
+from .avsg_func import get_out_of_road_penalty
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 

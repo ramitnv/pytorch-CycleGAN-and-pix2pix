@@ -1,6 +1,7 @@
 import torch
 from torch import nn as nn
 from torch.nn.init import trunc_normal_
+
 from models.avsg_agents_decoder import get_agents_decoder
 from models.avsg_map_encoder import MapEncoder
 from util.helper_func import init_net
@@ -84,31 +85,6 @@ class SceneGenerator(nn.Module):
                           a=-latent_noise_trunc_stds, b=+latent_noise_trunc_stds)
 
         return latent_noise
-
-
-###############################################################################
-
-def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, reference_points):
-    '''
-    returns distances from the "reference_points" to the corresponding closest left/right lane points
-    note: reference_points changes dimensions
-    '''
-    batch_size, max_num_elem, max_points_per_elem, coord_dim = lanes_points.shape
-    max_n_agents = reference_points.shape[1]
-    invalids = torch.logical_not(lanes_points_exists)
-
-    # change the two tensors into a common shape:
-    lanes_points = lanes_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
-    lanes_points = lanes_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
-    invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
-    reference_points = reference_points.unsqueeze(2).expand(-1, -1, max_num_elem * max_points_per_elem, -1)
-
-    # find min dist from the "reference_points" to a left \ right lane point
-    d_sqr_ref_to_lane = (lanes_points - reference_points).square().sum(dim=-1)
-    d_sqr_ref_to_lane[invalids] = torch.inf  # Set distance=inf in non-existent points
-    d_sqr_ref_to_closest_lane_point = d_sqr_ref_to_lane.min(dim=-1).values
-
-    return d_sqr_ref_to_closest_lane_point
 
 
 ###############################################################################

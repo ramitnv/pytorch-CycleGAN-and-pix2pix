@@ -2,8 +2,44 @@ import torch
 from torch import sqrt, linalg as LA
 from torch.nn.functional import elu
 
-from models.avsg_generator import get_distance_to_closest_lane_points
 
+###############################################################################
+
+class ProjectionToAgentFeat(object):
+    '''
+    Project the generator output to the feature vectors domain
+    '''
+
+    def __init__(self, opt, device):
+        self.device = device
+        self.max_num_agents = opt.max_num_agents
+        self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
+        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
+        # code now supports only this feature format:
+        assert self.agent_feat_vec_coord_labels == [
+            'centroid_x',  # [0]  Real number
+            'centroid_y',  # [1]  Real number
+            'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
+            'speed',  # [4] Real non-negative
+        ]
+
+    def __call__(self, agents_vecs, n_agents_per_scene, agents_exists):
+        '''
+        agents_vecs [batch_size x max_num_agents x dim_agent_feat_vec)]
+        # Coordinates 0,1 are centroid x,y - no need to project
+        # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle by normalizing to L norm ==1
+        # Coordinate 4 is speed project to positive numbers
+        '''
+        eps = 1e-12
+        agents_vecs = torch.cat([
+            agents_vecs[:, :, :2],
+            agents_vecs[:, :, 2:4] / (LA.vector_norm(agents_vecs[:, :, 2:4], ord=2, dim=2, keepdims=True) + eps),
+            torch.abs(agents_vecs[:, :, 4].unsqueeze(-1))  # should we use F.softplus ?
+        ], dim=2)
+        # Set zero at non existent agents
+        agents_vecs[agents_exists.logical_not()] = 0.
+        return agents_vecs
 
 ###############################################################################
 
@@ -79,43 +115,28 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     return penalty
 
-
 ###############################################################################
 
-class ProjectionToAgentFeat(object):
+def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, reference_points):
     '''
-    Project the generator output to the feature vectors domain
+    returns distances from the "reference_points" to the corresponding closest left/right lane points
+    note: reference_points changes dimensions
     '''
+    batch_size, max_num_elem, max_points_per_elem, coord_dim = lanes_points.shape
+    max_n_agents = reference_points.shape[1]
+    invalids = torch.logical_not(lanes_points_exists)
 
-    def __init__(self, opt, device):
-        self.device = device
-        self.max_num_agents = opt.max_num_agents
-        self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
-        # code now supports only this feature format:
-        assert self.agent_feat_vec_coord_labels == [
-            'centroid_x',  # [0]  Real number
-            'centroid_y',  # [1]  Real number
-            'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-            'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-            'speed',  # [4] Real non-negative
-        ]
+    # change the two tensors into a common shape:
+    lanes_points = lanes_points.view(batch_size, max_num_elem * max_points_per_elem, coord_dim)
+    lanes_points = lanes_points.unsqueeze(1).expand(-1, max_n_agents, -1, -1)
+    invalids = invalids.unsqueeze(1).repeat(1, max_n_agents, max_points_per_elem)
+    reference_points = reference_points.unsqueeze(2).expand(-1, -1, max_num_elem * max_points_per_elem, -1)
 
-    def __call__(self, agents_vecs, n_agents_per_scene, agents_exists):
-        '''
-        agents_vecs [batch_size x max_num_agents x dim_agent_feat_vec)]
-        # Coordinates 0,1 are centroid x,y - no need to project
-        # Coordinates 2,3 are yaw_cos, yaw_sin - project to unit circle by normalizing to L norm ==1
-        # Coordinate 4 is speed project to positive numbers
-        '''
-        eps = 1e-12
-        agents_vecs = torch.cat([
-            agents_vecs[:, :, :2],
-            agents_vecs[:, :, 2:4] / (LA.vector_norm(agents_vecs[:, :, 2:4], ord=2, dim=2, keepdims=True) + eps),
-            torch.abs(agents_vecs[:, :, 4].unsqueeze(-1))  # should we use F.softplus ?
-        ], dim=2)
-        # Set zero at non existent agents
-        agents_vecs[agents_exists.logical_not()] = 0.
-        return agents_vecs
+    # find min dist from the "reference_points" to a left \ right lane point
+    d_sqr_ref_to_lane = (lanes_points - reference_points).square().sum(dim=-1)
+    d_sqr_ref_to_lane[invalids] = torch.inf  # Set distance=inf in non-existent points
+    d_sqr_ref_to_closest_lane_point = d_sqr_ref_to_lane.min(dim=-1).values
+
+    return d_sqr_ref_to_closest_lane_point
 
 ###############################################################################
