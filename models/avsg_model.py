@@ -56,7 +56,6 @@ class AvsgModel(BaseModel):
             parser.add_argument('--use_layer_norm', type=int, default=0, help='0 or 1')
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
-
             parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.001, help=" ")
 
 
@@ -75,7 +74,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--n_discr_pointnet_layers', type=int, default=3, help='')
 
             # ~~~~   Agents decoder options
-            parser.add_argument('--agents_decoder_model', type=str, default='Sequential',
+            parser.add_argument('--agents_decoder_model', type=str, default='MLP',
                                 help="| 'MLP' | 'Sequential' ")
             parser.add_argument('--agents_dec_in_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_out_layers', type=int, default=4, help='')
