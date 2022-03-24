@@ -20,7 +20,7 @@ import torch
 
 from models.avsg_discriminator import cal_gradient_penalty
 from models.avsg_generator import define_G
-from .avsg_losses import get_out_of_road_penalty
+from .avsg_func import get_out_of_road_penalty
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
 from .base_model import BaseModel
@@ -75,6 +75,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--n_discr_pointnet_layers', type=int, default=3, help='')
 
             # ~~~~   Agents decoder options
+            parser.add_argument('--agents_decoder_model', type=str, default='Sequential',
+                                help="| 'MLP' | 'Sequential' ")
             parser.add_argument('--agents_dec_in_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_out_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_n_stacked_rnns', type=int, default=3, help='')
@@ -82,8 +84,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--agents_dec_use_bias', type=int, default=1)
             parser.add_argument('--agents_dec_mlp_n_layers', type=int, default=4)
             parser.add_argument('--gru_attn_layers', type=int, default=3, help='')
-            parser.add_argument('--agents_decoder_model', type=str,
-                                default='MLP')  # | 'MLP' | 'LSTM'
+
 
             # ~~~~ Display settings
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
