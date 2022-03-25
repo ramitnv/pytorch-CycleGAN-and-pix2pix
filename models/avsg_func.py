@@ -1,7 +1,7 @@
 import torch
 from torch import sqrt, linalg as LA
 from torch.nn.functional import elu
-
+import numpy as np
 
 ###############################################################################
 
@@ -143,6 +143,7 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
 
 
 def get_collisions_penalty(conditioning, agents, opt):
+    batch_size, max_n_agents, n_feat = agents.shape
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
     i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
     i_yaw_cos = opt.agent_feat_vec_coord_labels.index('yaw_cos')
@@ -150,9 +151,22 @@ def get_collisions_penalty(conditioning, agents, opt):
     extent_length = opt.default_agent_extent_length
     extent_width = opt.default_agent_extent_width
     agents_exists = conditioning['agents_exists']
-    max_n_agents = agents.shape[1]
-    agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
-    agents_directions = agents[:, :, [i_yaw_cos, i_yaw_sin]]
+    centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
+    directions = agents[:, :, [i_yaw_cos, i_yaw_sin]]
+
+    front_vec = directions * extent_length * 0.5
+    rot_mat = torch.tensor(([0, -1.], [1., 0])).to(opt.device)
+    # explanation: the original direction vec is (cos(a), sin(a))
+    # we want to rotate by +90 degrees
+    #  (cos(pi/2+a), sin(pi/2 + a) = (-sin(a) , +cos(a)) = rot_mat @ (cos(a), sin(a))
+    left_vec = directions @ rot_mat * extent_width * 0.5
+    corners = dict()
+    corners[('front', 'left')] = centroids + front_vec + left_vec
+    corners[('back', 'left')] = centroids - front_vec + left_vec
+    corners[('back', 'right')] = centroids - front_vec - left_vec
+    corners[('front', 'right')] = centroids + front_vec - left_vec
+
+
 
 
     return
