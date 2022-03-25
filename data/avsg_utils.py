@@ -10,8 +10,9 @@ def get_single_conditioning_from_batch(conditioning_batch, i_map):
     map_feat = {k: map_feat_batch[k][i_map].unsqueeze(0) for k in map_feat_batch.keys()}
     conditioning = {'map_feat': map_feat,
                     'n_agents_in_scene': conditioning_batch['n_agents_in_scene'][i_map].unsqueeze(0),
-                    'agents_exists':  conditioning_batch['agents_exists'][i_map].unsqueeze(0)}
+                    'agents_exists': conditioning_batch['agents_exists'][i_map].unsqueeze(0)}
     return conditioning
+
 
 #########################################################################################
 

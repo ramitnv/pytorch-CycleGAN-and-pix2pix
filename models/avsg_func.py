@@ -60,7 +60,7 @@ def get_out_of_road_penalty(conditioning, agents, opt):
     # Get lanes points
     lanes_mid_points = map_elems_points[:, i_lanes_mid]
 
-    # Get agents centroids, set infinity in non-valid coordinates
+    # Get agents centroids
     agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
 
     #   Now we transform the tensors to be with a common dimensions of
@@ -143,4 +143,16 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
 
 
 def get_collisions_penalty(conditioning, agents, opt):
+    i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
+    i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
+    i_yaw_cos = opt.agent_feat_vec_coord_labels.index('yaw_cos')
+    i_yaw_sin = opt.agent_feat_vec_coord_labels.index('yaw_sin')
+    extent_length = opt.default_agent_extent_length
+    extent_width = opt.default_agent_extent_width
+    agents_exists = conditioning['agents_exists']
+    max_n_agents = agents.shape[1]
+    agents_centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
+    agents_directions = agents[:, :, [i_yaw_cos, i_yaw_sin]]
+
+
     return
