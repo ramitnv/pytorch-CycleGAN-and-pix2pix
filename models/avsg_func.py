@@ -140,3 +140,7 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
     return d_sqr_ref_to_closest_lane_point
 
 ###############################################################################
+
+
+def get_collisions_penalty(conditioning, agents, opt):
+    return

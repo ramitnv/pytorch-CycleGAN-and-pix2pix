@@ -22,7 +22,7 @@ from models.avsg_discriminator import cal_gradient_penalty
 from models.avsg_generator import define_G
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
-from .avsg_func import get_out_of_road_penalty
+from .avsg_func import get_collisions_penalty, get_out_of_road_penalty
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 
@@ -57,6 +57,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
             parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.001, help=" ")
+            parser.add_argument('--lamb_loss_G_collisions', type=float, default=0.001, help=" ")
 
 
             # ~~~~ map encoder settings
@@ -220,11 +221,15 @@ class AvsgModel(BaseModel):
 
         loss_G_out_of_road = get_out_of_road_penalty(conditioning, fake_agents, opt)
 
+        loss_G_collisions = get_collisions_penalty(conditioning, fake_agents, opt)
+
         # combine losses
-        reg_total = sum_regularization_terms(
-            [(opt.lamb_loss_G_feat_match, loss_G_feat_match),
-             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
-             (opt.lamb_loss_G_out_of_road, loss_G_out_of_road)])
+        reg_total = sum_regularization_terms([
+            (opt.lamb_loss_G_feat_match, loss_G_feat_match),
+            (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
+            (opt.lamb_loss_G_out_of_road, loss_G_out_of_road),
+            (opt.lamb_loss_G_collisions, loss_G_collisions)
+        ])
 
         loss_G = loss_G_GAN + reg_total
 
@@ -233,7 +238,8 @@ class AvsgModel(BaseModel):
                        "loss_G_feat_match": loss_G_feat_match,
                        "d_fake": d_out_for_fake,
                        "loss_G_weights_norm": loss_G_weights_norm,
-                       "loss_G_out_of_road": loss_G_out_of_road}
+                       "loss_G_out_of_road": loss_G_out_of_road,
+                       "loss_G_collisions": loss_G_collisions}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_G, log_metrics
 
