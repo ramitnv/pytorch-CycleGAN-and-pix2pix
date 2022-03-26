@@ -160,13 +160,23 @@ def get_collisions_penalty(conditioning, agents, opt):
     # we want to rotate by +90 degrees
     #  (cos(pi/2+a), sin(pi/2 + a) = (-sin(a) , +cos(a)) = rot_mat @ (cos(a), sin(a))
     left_vec = directions @ rot_mat * extent_width * 0.5
-    corners = dict()
-    corners[('front', 'left')] = centroids + front_vec + left_vec
-    corners[('back', 'left')] = centroids - front_vec + left_vec
-    corners[('back', 'right')] = centroids - front_vec - left_vec
-    corners[('front', 'right')] = centroids + front_vec - left_vec
+    mid_segment = dict()
+    mid_segment['front'] = centroids + front_vec
+    mid_segment['back'] = centroids - front_vec
+    mid_segment['left'] = centroids + left_vec
+    mid_segment['right'] = centroids - left_vec
+
+    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
+    # find the deviation of the intersection point from the middle of the segment
+    # if it is inside the segment, then it is a collision between the cars
 
 
+
+
+    # corners[('front', 'left')] = centroids + front_vec + left_vec
+    # corners[('back', 'left')] = centroids - front_vec + left_vec
+    # corners[('back', 'right')] = centroids - front_vec - left_vec
+    # corners[('front', 'right')] = centroids + front_vec - left_vec
 
 
     return
