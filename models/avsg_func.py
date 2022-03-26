@@ -170,17 +170,18 @@ def get_collisions_penalty(conditioning, agents, opt):
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                 'left': - front_vec, 'right': + front_vec}
 
-
-    for seg1_name, seg1_vecs in segs_vecs.items():
-        for seg2_name, seg2_vecs in segs_vecs.items():
-            seg1_mids = segs_mids[seg1_name]
-            seg2_mids = segs_mids[seg2_name]
-            for i_agent1 in range(max_n_agents - 1):
-                for i_agent2 in range(i_agent1 + 1, max_n_agents):
-                    seg1_mid = seg1_mids[:, i_agent1, :]
-                    seg2_mid = seg2_mids[:, i_agent2, :]
-                    seg1_vec = seg1_vecs[:, i_agent1, :]
-                    seg2_vec = seg1_vecs[:, i_agent2, :]
+    for i_agent1 in range(max_n_agents - 1):
+        for i_agent2 in range(i_agent1 + 1, max_n_agents):
+            # find valid scenes = both agents exists,
+            valids = agents_exists[:, i_agent1] * agents_exists[:, i_agent2]
+            for seg1_name, seg1_vecs in segs_vecs.items():
+                for seg2_name, seg2_vecs in segs_vecs.items():
+                    seg1_mids = segs_mids[seg1_name]
+                    seg2_mids = segs_mids[seg2_name]
+                    seg1_mid = seg1_mids[valids, i_agent1, :]
+                    seg2_mid = seg2_mids[valids, i_agent2, :]
+                    seg1_vec = seg1_vecs[valids, i_agent1, :]
+                    seg2_vec = seg1_vecs[valids, i_agent2, :]
                     # find the deviation of the intersection point from the middle of the segment
                     # if it is inside the segment, then it is a collision between the cars4
                     # add to the penalty the distance of the impact from the corner,
@@ -190,9 +191,9 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # = (x_dir_2) * (y_dir_1) -(x_dir_1) * (y_dir_2)
                     determinant = seg2_vec[:, 0] * seg1_vec[:, 1] - seg1_vec[:, 0] * seg2_vec[:, 1]
                     epsilon = 1e-6
-                    # find valid scenes = both agents existsm, and there is an intersection of the infinite lines
+                    # find valid scenes = where there is a cross of the infinite lines
                     # of the two corresponding segments
-                    valids = agents_exists[:, i_agent1] * agents_exists[:, i_agent2] * (determinant.abs() > epsilon)
+                    is_cross = determinant.abs() > epsilon
                     pass
 
     return
