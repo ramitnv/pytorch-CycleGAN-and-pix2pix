@@ -183,7 +183,7 @@ def get_collisions_penalty(conditioning, agents, opt):
                     seg1_vec = seg1_vecs[valids, i_agent1, :]
                     seg2_vec = seg1_vecs[valids, i_agent2, :]
                     # find the deviation of the intersection point from the middle of the segment
-                    # if it is inside the segment, then it is a collision between the cars4
+                    # if it is inside the segment, then it is a collision between the cars
                     # add to the penalty the distance of the impact from the corner,
                     # use ReLU or ELU to only penalize collisions
                     # See: https://math.stackexchange.com/a/406895
