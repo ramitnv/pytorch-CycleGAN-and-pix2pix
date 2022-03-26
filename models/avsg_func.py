@@ -163,26 +163,28 @@ def get_collisions_penalty(conditioning, agents, opt):
     left_vec = front_direction @ rot_mat * extent_width * 0.5
 
     # find the  middle of each of the 4 segments (sides of the car)
-    seg_mid = {'front': centroids + front_vec, 'back': centroids - front_vec,
+    segs_mids = {'front': centroids + front_vec, 'back': centroids - front_vec,
                'left': centroids + left_vec, 'right': centroids - left_vec}
 
     # find a vector that goes from the center of each segment to one of its edges (doesn't matter which of the two)
-    seg_vecs = {'front': + left_vec, 'back': - left_vec,
-               'left': - front_vec, 'right': + front_vec}
+    segs_vecs = {'front': + left_vec, 'back': - left_vec,
+                'left': - front_vec, 'right': + front_vec}
 
-    for i_agent1 in range(max_n_agents):
-        for i_agent2 in range(max_n_agents):
-            for vec1_name, dir1_vec in seg_vecs.items():
-                for vec2_name, dir2_vec in seg_vecs.items():
-                    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
+
+    for seg1_name, seg1_vecs in segs_vecs.items():
+        for seg2_name, seg2_vecs in segs_vecs.items():
+            seg1_mids = segs_mids[seg1_name]
+            seg2_mids = segs_mids[seg2_name]
+            for i_agent1 in range(max_n_agents - 1):
+                for i_agent2 in range(i_agent1 + 1, max_n_agents):
+                    seg1_mid = seg1_mids[:, i_agent1, :]
+                    seg2_mid = seg2_mids[:, i_agent2, :]
+                    seg1_vec = seg1_vecs[:, i_agent1, :]
+                    seg2_vec = seg1_vecs[:, i_agent2, :]
                     # find the deviation of the intersection point from the middle of the segment
-                    # if it is inside the segment, then it is a collision between the cars
+                    # if it is inside the segment, then it is a collision between the cars4
+                    # add to the penalty the distance of the impact from the corner, use ReLU or ELU to only penalize collisions
                     pass
-
-
-    # corners[('front', 'left')] = centroids + front_vec + left_vec
-    # corners[('back', 'left')] = centroids - front_vec + left_vec
-    # corners[('back', 'right')] = centroids - front_vec - left_vec
-    # corners[('front', 'right')] = centroids + front_vec - left_vec
+                    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
 
     return
