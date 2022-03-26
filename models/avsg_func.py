@@ -3,6 +3,7 @@ from torch import sqrt, linalg as LA
 from torch.nn.functional import elu
 import numpy as np
 
+
 ###############################################################################
 
 class ProjectionToAgentFeat(object):
@@ -40,6 +41,7 @@ class ProjectionToAgentFeat(object):
         # Set zero at non existent agents
         agents_vecs[agents_exists.logical_not()] = 0.
         return agents_vecs
+
 
 ###############################################################################
 
@@ -115,6 +117,7 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     return penalty
 
+
 ###############################################################################
 
 def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, reference_points):
@@ -139,6 +142,7 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
 
     return d_sqr_ref_to_closest_lane_point
 
+
 ###############################################################################
 
 
@@ -152,31 +156,33 @@ def get_collisions_penalty(conditioning, agents, opt):
     extent_width = opt.default_agent_extent_width
     agents_exists = conditioning['agents_exists']
     centroids = agents[:, :, [i_centroid_x, i_centroid_y]]
-    directions = agents[:, :, [i_yaw_cos, i_yaw_sin]]
+    front_direction = agents[:, :, [i_yaw_cos, i_yaw_sin]]
+    front_vec = front_direction * extent_length * 0.5
+    rot_mat = torch.tensor(([0, -1.], [1., 0])).to(
+        opt.device)  # explanation: the original direction vec is (cos(a), sin(a)) we want to rotate by +90 degrees, (cos(pi/2+a), sin(pi/2 + a) = (-sin(a) , +cos(a)) = rot_mat @ (cos(a), sin(a))
+    left_vec = front_direction @ rot_mat * extent_width * 0.5
 
-    front_vec = directions * extent_length * 0.5
-    rot_mat = torch.tensor(([0, -1.], [1., 0])).to(opt.device)
-    # explanation: the original direction vec is (cos(a), sin(a))
-    # we want to rotate by +90 degrees
-    #  (cos(pi/2+a), sin(pi/2 + a) = (-sin(a) , +cos(a)) = rot_mat @ (cos(a), sin(a))
-    left_vec = directions @ rot_mat * extent_width * 0.5
-    mid_segment = dict()
-    mid_segment['front'] = centroids + front_vec
-    mid_segment['back'] = centroids - front_vec
-    mid_segment['left'] = centroids + left_vec
-    mid_segment['right'] = centroids - left_vec
+    # find the  middle of each of the 4 segments (sides of the car)
+    seg_mid = {'front': centroids + front_vec, 'back': centroids - front_vec,
+               'left': centroids + left_vec, 'right': centroids - left_vec}
 
-    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
-    # find the deviation of the intersection point from the middle of the segment
-    # if it is inside the segment, then it is a collision between the cars
+    # find a vector that goes from the center of each segment to one of its edges (doesn't matter which of the two)
+    seg_vecs = {'front': + left_vec, 'back': - left_vec,
+               'left': - front_vec, 'right': + front_vec}
 
-
+    for i_agent1 in range(max_n_agents):
+        for i_agent2 in range(max_n_agents):
+            for vec1_name, dir1_vec in seg_vecs.items():
+                for vec2_name, dir2_vec in seg_vecs.items():
+                    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
+                    # find the deviation of the intersection point from the middle of the segment
+                    # if it is inside the segment, then it is a collision between the cars
+                    pass
 
 
     # corners[('front', 'left')] = centroids + front_vec + left_vec
     # corners[('back', 'left')] = centroids - front_vec + left_vec
     # corners[('back', 'right')] = centroids - front_vec - left_vec
     # corners[('front', 'right')] = centroids + front_vec - left_vec
-
 
     return
