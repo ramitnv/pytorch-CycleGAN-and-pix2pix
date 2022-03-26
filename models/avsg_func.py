@@ -183,8 +183,16 @@ def get_collisions_penalty(conditioning, agents, opt):
                     seg2_vec = seg1_vecs[:, i_agent2, :]
                     # find the deviation of the intersection point from the middle of the segment
                     # if it is inside the segment, then it is a collision between the cars4
-                    # add to the penalty the distance of the impact from the corner, use ReLU or ELU to only penalize collisions
+                    # add to the penalty the distance of the impact from the corner,
+                    # use ReLU or ELU to only penalize collisions
+                    # See: https://math.stackexchange.com/a/406895
+                    # determinant  = (x_dir_1) * (-y_dir_2) - (- x_dir_2) * (y_dir_1)
+                    # = (x_dir_2) * (y_dir_1) -(x_dir_1) * (y_dir_2)
+                    determinant = seg2_vec[:, 0] * seg1_vec[:, 1] - seg1_vec[:, 0] * seg2_vec[:, 1]
+                    epsilon = 1e-6
+                    # find valid scenes = both agents existsm, and there is an intersection of the infinite lines
+                    # of the two corresponding segments
+                    valids = agents_exists[:, i_agent1] * agents_exists[:, i_agent2] * (determinant.abs() > epsilon)
                     pass
-                    # https://math.stackexchange.com/questions/406864/intersection-of-two-lines-in-vector-form
 
     return
