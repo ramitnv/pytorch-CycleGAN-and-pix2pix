@@ -182,18 +182,32 @@ def get_collisions_penalty(conditioning, agents, opt):
                     seg2_mid = seg2_mids[valids, i_agent2, :]
                     seg1_vec = seg1_vecs[valids, i_agent1, :]
                     seg2_vec = seg1_vecs[valids, i_agent2, :]
+
+
                     # find the deviation of the intersection point from the middle of the segment
-                    # if it is inside the segment, then it is a collision between the cars
-                    # add to the penalty the distance of the impact from the corner,
-                    # use ReLU or ELU to only penalize collisions
                     # See: https://math.stackexchange.com/a/406895
-                    # determinant  = (x_dir_1) * (-y_dir_2) - (- x_dir_2) * (y_dir_1)
-                    # = (x_dir_2) * (y_dir_1) -(x_dir_1) * (y_dir_2)
+                    # our problem to solve in a matrix form:  A f = h
+                    # where
+                    # A = [[line1_v_x , -line2_v_x)], [line1_v_y, -line2_v_y]]
+                    # f = [delta1, delta2]
+                    # h = [line2_x - line1_x, line2_y - line1_y]
+
+                    # determinant(A)  = (line1_v_x) * (-line2_v_y) - (- line2_v_x) * (line1_v_y)
+                    # = (line2_v_x) * (line1_v_y) -(line1_v_x) * (line2_v_y)
                     determinant = seg2_vec[:, 0] * seg1_vec[:, 1] - seg1_vec[:, 0] * seg2_vec[:, 1]
                     epsilon = 1e-6
-                    # find valid scenes = where there is a cross of the infinite lines
-                    # of the two corresponding segments
+
+                    # find valid scenes = where there is a cross of the two infinite lines
+                    # (might not be inside the segments)
                     is_cross = determinant.abs() > epsilon
+
+                    # delta1 =
+                    # delta12 =
+
+                    # if the intersection is in both segment (|delta1| < 1  AND |delta2| < 1),
+                    # then it is a collision between the cars
+                    # add to the penalty the distance of the impact from the corner,
+                    # use ReLU or ELU to only penalize collisions
                     pass
 
     return
