@@ -188,12 +188,12 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # See: https://math.stackexchange.com/a/406895
                     # our problem to solve in a matrix form:  A f = h
                     # where
-                    # A = [[line1_v_x , -line2_v_x)], [line1_v_y, -line2_v_y]]
+                    # A = [[L1_v_x , -L2_v_x)], [L1_v_y, -L2_v_y]]
                     # f = [delta1, delta2]
-                    # h = [line2_x - line1_x, line2_y - line1_y]
+                    # h = [L2_x - L1_x, L2_y - L1_y]
 
-                    # determinant(A)  = (line1_v_x) * (-line2_v_y) - (- line2_v_x) * (line1_v_y)
-                    # = (line2_v_x) * (line1_v_y) -(line1_v_x) * (line2_v_y)
+                    # determinant(A)  = (L1_v_x) * (-L2_v_y) - (- L2_v_x) * (L1_v_y)
+                    # = (L2_v_x) * (L1_v_y) -(L1_v_x) * (L2_v_y)
                     determinant = seg2_vec[:, 0] * seg1_vec[:, 1] - seg1_vec[:, 0] * seg2_vec[:, 1]
                     epsilon = 1e-6
 
@@ -201,8 +201,10 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # (might not be inside the segments)
                     is_cross = determinant.abs() > epsilon
 
-                    # delta1 =
-                    # delta12 =
+                    # A^{-1} = (1/determinant) * [[ -L2_v_y, L2_v_x)], [-L1_v_y, L1_v_x ]]
+                    # f = A^{-1} h
+                    # delta1 = (1/determinant) * (-L2_v_y * (L2_x - L1_x,) + L2_v_x * (L1_v_y, -L2_v_y))
+                    # delta2 = (1/determinant) * (-L1_v_y * (L2_x - L1_x,) + L1_v_x * (L1_v_y, -L2_v_y))
 
                     # if the intersection is in both segment (|delta1| < 1  AND |delta2| < 1),
                     # then it is a collision between the cars
