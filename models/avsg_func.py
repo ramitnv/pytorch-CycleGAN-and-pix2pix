@@ -178,35 +178,37 @@ def get_collisions_penalty(conditioning, agents, opt):
                 for seg2_name, seg2_vecs in segs_vecs.items():
                     seg1_mids = segs_mids[seg1_name]
                     seg2_mids = segs_mids[seg2_name]
-                    seg1_mid = seg1_mids[valids, i_agent1, :]
-                    seg2_mid = seg2_mids[valids, i_agent2, :]
-                    seg1_vec = seg1_vecs[valids, i_agent1, :]
-                    seg2_vec = seg1_vecs[valids, i_agent2, :]
-
+                    L1_p = seg1_mids[valids, i_agent1, :]
+                    L2_p = seg2_mids[valids, i_agent2, :]
+                    L1_v = seg1_vecs[valids, i_agent1, :]
+                    L2_v = seg2_vecs[valids, i_agent2, :]
 
                     # find the deviation of the intersection point from the middle of the segment
                     # See: https://math.stackexchange.com/a/406895
-                    # our problem to solve in a matrix form:  A f = h
+                    # our problem to solve in a matrix form:  A f = d
                     # where
-                    # A = [[L1_v_x , -L2_v_x)], [L1_v_y, -L2_v_y]]
-                    # f = [delta1, delta2]
-                    # h = [L2_x - L1_x, L2_y - L1_y]
+                    # A = [[L1_v_x, -L2_v_x], [L1_v_y, -L2_v_y]]
+                    # s = [s1, s2]
+                    # d = [L2_p_x - L1_p_x, L2_p_y - L1_p_y] = [dx, dy]
 
-                    # determinant(A)  = (L1_v_x) * (-L2_v_y) - (- L2_v_x) * (L1_v_y)
+                    # determinant(A)  = (L1_v_x) * (-L2_v_y) - (-L2_v_x) * (L1_v_y)
                     # = (L2_v_x) * (L1_v_y) -(L1_v_x) * (L2_v_y)
-                    determinant = seg2_vec[:, 0] * seg1_vec[:, 1] - seg1_vec[:, 0] * seg2_vec[:, 1]
+                    determinant = L2_v[:, 0] * L1_v[:, 1] - L1_v[:, 0] * L2_v[:, 1]
                     epsilon = 1e-6
 
                     # find valid scenes = where there is a cross of the two infinite lines
                     # (might not be inside the segments)
                     is_cross = determinant.abs() > epsilon
 
-                    # A^{-1} = (1/determinant) * [[ -L2_v_y, L2_v_x)], [-L1_v_y, L1_v_x ]]
-                    # f = A^{-1} h
-                    # delta1 = (1/determinant) * (-L2_v_y * (L2_x - L1_x,) + L2_v_x * (L1_v_y, -L2_v_y))
-                    # delta2 = (1/determinant) * (-L1_v_y * (L2_x - L1_x,) + L1_v_x * (L1_v_y, -L2_v_y))
+                    # A^{-1} = (1/determinant) * [[ -L2_v_y, L2_v_x], [-L1_v_y, L1_v_x]]
+                    # s = A^{-1} d
+                    # s1 = (1/determinant) * (-L2_v_y * dx + L2_v_x * dy) = (L2_v_x * dy - L2_v_y * dx) / determinant
+                    # s2 = (1/determinant) * (-L1_v_y * dx + L1_v_x * dy) = (L1_v_x * dy - L1_v_y * dx) / determinant
+                    d = L2_p[is_cross] - L1_p[is_cross]
+                    s1 = (L2_v[:, 0] * d[:, 1] - L2_v[:, 1] * d[:, 0]) / determinant
+                    s2 = (L1_v[:, 0] * d[:, 1] - L1_v[:, 1] * d[:, 0]) / determinant
 
-                    # if the intersection is in both segment (|delta1| < 1  AND |delta2| < 1),
+                    # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars
                     # add to the penalty the distance of the impact from the corner,
                     # use ReLU or ELU to only penalize collisions
