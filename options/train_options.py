@@ -30,7 +30,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--n_steps_D', type=int, default=1, help='number of generator update steps per iteration')
 
         parser.add_argument('--optimizer_type', type=str, default='Adam', help='SGD / Adam')
-        parser.add_argument('--lr_G', type=float, default=0.001, help='initial learning rate for ADAM optimizer of G')
+        parser.add_argument('--lr_G', type=float, default=0.002, help='initial learning rate for ADAM optimizer of G')
         parser.add_argument('--lr_D', type=float, default=0.002, help='initial learning rate for ADAM optimizer of D')
         parser.add_argument('--sgd_momentum', type=float, default=0.9, help='momentum')
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
