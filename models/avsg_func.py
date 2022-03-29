@@ -172,7 +172,7 @@ def get_collisions_penalty(conditioning, agents, opt):
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                  'left': - front_vec, 'right': + front_vec}
 
-    penalty = torch.zeros(batch_size, device=opt.device)
+    penalty = torch.zeros(1, device=opt.device)
 
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
@@ -216,6 +216,7 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
                     penalty_curr = elu(1 - s1.abs()) * elu(1 - s2.abs())
-                    penalty += torch.sum(penalty_curr[valids * is_cross])  # sum over valid scenes
+                    # sum over valid scenes
+                    penalty += torch.sum(penalty_curr[valids * is_cross])
     penalty /= batch_size  # we want average over batch_size
     return penalty
