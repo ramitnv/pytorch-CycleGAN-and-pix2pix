@@ -1,6 +1,6 @@
 import torch
 from torch import sqrt, linalg as LA
-from torch.nn.functional import elu, relu
+from torch.nn.functional import elu
 import numpy as np
 
 
@@ -220,7 +220,15 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # s1,s2 are the distances of the intersections from the middle of the corresponding segments
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
-                    penalty_curr = relu(1 - s1.abs()) * relu(1 - s2.abs())
+                    penalty_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
+                    # we used 1+elu(t) = t if t >0, elso exp(t),  -inf < t <=1,  t=1-|s|
+                    # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
+                    # (higher |s| means farther from collision)
+                    # the max penalty is with s==0 (mid segment collision)
+                    # but when |s|>1 (t<0) then we have a milder slope - in this regime there is no collision
+                    # but there is still a slop - so the optimization will drive th cars away
+                    # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
+
                     # sum over valid scenes
                     penalty += torch.sum(penalty_curr)
 
