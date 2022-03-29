@@ -1,6 +1,6 @@
 import torch
 from torch import sqrt, linalg as LA
-from torch.nn.functional import elu
+from torch.nn.functional import elu, relu
 import numpy as np
 
 
@@ -220,7 +220,7 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # s1,s2 are the distances of the intersections from the middle of the corresponding segments
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
-                    penalty_curr = elu(1 - s1.abs()) * elu(1 - s2.abs())
+                    penalty_curr = relu(1 - s1.abs()) * relu(1 - s2.abs())
                     # sum over valid scenes
                     penalty += torch.sum(penalty_curr)
 
