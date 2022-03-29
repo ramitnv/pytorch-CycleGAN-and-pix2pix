@@ -172,12 +172,14 @@ def get_collisions_penalty(conditioning, agents, opt):
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                  'left': - front_vec, 'right': + front_vec}
 
-    penalty = torch.zeros(1, device=opt.device)
+    penalty = torch.tensor(0., device=opt.device)
 
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
             # find valid scenes = both agents IDs exists,
             valids = agents_exists[:, i_agent1] * agents_exists[:, i_agent2]
+            if valids.sum() == 0:
+                continue
             for seg1_name, seg1_vecs in segs_vecs.items():
                 for seg2_name, seg2_vecs in segs_vecs.items():
                     seg1_mids = segs_mids[seg1_name]
@@ -203,20 +205,25 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # find valid scenes = where there is a cross of the two infinite lines
                     # (might not be inside the segments)
                     is_cross = determinant.abs() > epsilon
+                    if is_cross.sum() == 0:
+                        continue
+                    valids = valids * is_cross
 
                     # A^{-1} = (1/determinant) * [[ -L2_v_y, L2_v_x], [-L1_v_y, L1_v_x]]
                     # s = A^{-1} d
                     # s1 = (1/determinant) * (-L2_v_y * dx + L2_v_x * dy) = (L2_v_x * dy - L2_v_y * dx) / determinant
                     # s2 = (1/determinant) * (-L1_v_y * dx + L1_v_x * dy) = (L1_v_x * dy - L1_v_y * dx) / determinant
                     d = L2_p - L1_p
-                    s1 = (L2_v[:, 0] * d[:, 1] - L2_v[:, 1] * d[:, 0]) / determinant[:]
-                    s2 = (L1_v[:, 0] * d[:, 1] - L1_v[:, 1] * d[:, 0]) / determinant[:]
+                    s1 = (L2_v[valids, 0] * d[valids, 1] - L2_v[valids, 1] * d[valids, 0]) / determinant[valids]
+                    s2 = (L1_v[valids, 0] * d[valids, 1] - L1_v[valids, 1] * d[valids, 0]) / determinant[valids]
 
                     # s1,s2 are the distances of the intersections from the middle of the corresponding segments
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
                     penalty_curr = elu(1 - s1.abs()) * elu(1 - s2.abs())
                     # sum over valid scenes
-                    penalty += torch.sum(penalty_curr[valids * is_cross])
+                    penalty += torch.sum(penalty_curr)
+
     penalty /= batch_size  # we want average over batch_size
+    assert not torch.isnan(penalty)
     return penalty
