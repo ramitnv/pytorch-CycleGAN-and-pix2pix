@@ -19,9 +19,10 @@ You need to implement the following functions:
 import torch
 
 from models.avsg_discriminator import cal_gradient_penalty
-from models.avsg_generator import define_G, get_out_of_road_penalty
+from models.avsg_generator import define_G
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
+from .avsg_func import get_collisions_penalty, get_out_of_road_penalty
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 
@@ -55,8 +56,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--use_layer_norm', type=int, default=0, help='0 or 1')
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
-
-            parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.001, help=" ")
+            parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.1, help=" ")
+            parser.add_argument('--lamb_loss_G_collisions', type=float, default=0.1, help=" ")
 
 
             # ~~~~ map encoder settings
@@ -74,6 +75,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--n_discr_pointnet_layers', type=int, default=3, help='')
 
             # ~~~~   Agents decoder options
+            parser.add_argument('--agents_decoder_model', type=str, default='MLP',
+                                help="| 'MLP' | 'Sequential' ")
             parser.add_argument('--agents_dec_in_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_out_layers', type=int, default=4, help='')
             parser.add_argument('--agents_dec_n_stacked_rnns', type=int, default=3, help='')
@@ -81,8 +84,7 @@ class AvsgModel(BaseModel):
             parser.add_argument('--agents_dec_use_bias', type=int, default=1)
             parser.add_argument('--agents_dec_mlp_n_layers', type=int, default=4)
             parser.add_argument('--gru_attn_layers', type=int, default=3, help='')
-            parser.add_argument('--agents_decoder_model', type=str,
-                                default='MLP')  # | 'MLP' | 'LSTM'
+
 
             # ~~~~ Display settings
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
@@ -219,11 +221,15 @@ class AvsgModel(BaseModel):
 
         loss_G_out_of_road = get_out_of_road_penalty(conditioning, fake_agents, opt)
 
+        loss_G_collisions = get_collisions_penalty(conditioning, fake_agents, opt)
+
         # combine losses
-        reg_total = sum_regularization_terms(
-            [(opt.lamb_loss_G_feat_match, loss_G_feat_match),
-             (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
-             (opt.lamb_loss_G_out_of_road, loss_G_out_of_road)])
+        reg_total = sum_regularization_terms([
+            (opt.lamb_loss_G_feat_match, loss_G_feat_match),
+            (opt.lamb_loss_G_weights_norm, loss_G_weights_norm),
+            (opt.lamb_loss_G_out_of_road, loss_G_out_of_road),
+            (opt.lamb_loss_G_collisions, loss_G_collisions)
+        ])
 
         loss_G = loss_G_GAN + reg_total
 
@@ -232,7 +238,8 @@ class AvsgModel(BaseModel):
                        "loss_G_feat_match": loss_G_feat_match,
                        "d_fake": d_out_for_fake,
                        "loss_G_weights_norm": loss_G_weights_norm,
-                       "loss_G_out_of_road": loss_G_out_of_road}
+                       "loss_G_out_of_road": loss_G_out_of_road,
+                       "loss_G_collisions": loss_G_collisions}
         log_metrics = {name: val.mean().item() for name, val in log_metrics.items() if val is not None}
         return loss_G, log_metrics
 
