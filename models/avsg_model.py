@@ -44,11 +44,6 @@ class AvsgModel(BaseModel):
         """
         # ~~~~  Data
         if is_train:
-            parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
-                                help=" 'none' | 'rotate_and_translate")
-
-            parser.add_argument('--shuffle_agents_inds_flag', type=int, default=1,  help="")
-
             # ~~~~ general model settings
             parser.add_argument('--dim_agent_noise', type=int, default=16, help='Scene latent noise dimension')
             parser.add_argument('--dim_latent_map', type=int, default=32, help='Scene latent noise dimension')

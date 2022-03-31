@@ -42,19 +42,6 @@ class AvsgDataset(BaseDataset):
         """
 
         # ~~~~  Agents features
-        # parser.add_argument('--agent_feat_vec_coord_labels',
-        #                     default=['centroid_x',  # [0]  Real number
-        #                              'centroid_y',  # [1]  Real number
-        #                              'yaw_cos',  # [2]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-        #                              'yaw_sin',  # [3]  in range [-1,1],  sin(yaw)^2 + cos(yaw)^2 = 1
-        #                              'extent_length',  # [4] Real positive
-        #                              'extent_width',  # [5] Real positive
-        #                              'speed',  # [6] Real non-negative
-        #                              'is_CAR',  # [7] 0 or 1
-        #                              'is_CYCLIST',  # [8] 0 or 1
-        #                              'is_PEDESTRIAN',  # [9]  0 or 1
-        #                              ],
-        #                     type=list)
         parser.add_argument('--agent_feat_vec_coord_labels',
                             default=['centroid_x',  # [0]  Real number
                                      'centroid_y',  # [1]  Real number
@@ -69,6 +56,10 @@ class AvsgDataset(BaseDataset):
         parser.add_argument('--default_agent_extent_width', type=float, default=1.5)  # [m]
 
         parser.add_argument('--max_num_agents', type=int, default=4, help=' number of agents in a scene')
+
+        parser.add_argument('--augmentation_type', type=str, default='rotate_and_translate',
+                            help=" 'none' | 'rotate_and_translate")
+        parser.add_argument('--shuffle_agents_inds_flag', type=int, default=1, help="")
         return parser
 
     #########################################################################################
@@ -94,7 +85,7 @@ class AvsgDataset(BaseDataset):
         self.saved_mats_info = dataset_info['saved_mats_info']
         self.n_scenes = self.dataset_props['n_scenes']
         print('Loaded dataset file ', data_path)
-        print(f"Total number of scenes: {self.n_scenes}")
+        print(f"Total number of scenes loaded: {self.dataset_props['n_scenes']}")
         opt.polygon_types = self.dataset_props['polygon_types']
         opt.closed_polygon_types = self.dataset_props['closed_polygon_types']
         opt.agent_feat_vec_dim = len(opt.agent_feat_vec_coord_labels)
@@ -135,7 +126,6 @@ class AvsgDataset(BaseDataset):
 
         assert sample_sanity_check(sample)
         return sample
-
     ########################################################################################
 
     def __len__(self):

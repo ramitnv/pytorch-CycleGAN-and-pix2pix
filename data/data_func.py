@@ -1,6 +1,5 @@
-
-import torch.utils.data
-
+import torch
+import torch.utils.data as data_utils
 from . import get_dataset_class_using_name
 
 
@@ -13,8 +12,14 @@ def create_dataloader(opt, data_path):
     """
     dataset_class = get_dataset_class_using_name(opt.dataset_mode)
     dataset_obj = dataset_class(opt, data_path)
+
+    if opt.data_size_limit > 0:
+        indices = torch.randperm(len(dataset_obj))[:opt.data_size_limit]
+        dataset_obj = data_utils.Subset(dataset_obj, indices)
+        print(f'Dataset reduced to {len(dataset_obj)} scenes')
+
     print(f"dataset [{type(dataset_obj).__name__}] was created, data loaded from {data_path}")
-    data_loader = torch.utils.data.DataLoader(
+    data_loader = data_utils.DataLoader(
         dataset_obj,
         batch_size=opt.batch_size,
         shuffle=True,
