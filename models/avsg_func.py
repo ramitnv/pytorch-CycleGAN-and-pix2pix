@@ -221,12 +221,12 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
                     penalty_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
-                    # we used 1+elu(t) = t if t >0, elso exp(t),  -inf < t <=1,  t=1-|s|
+                    # we used
+                    # 1+elu(1 - |s|) = 1 - |s|, if 1 - |s| >0,  else, exp(1 - |s|),  -inf < 1 - |s| <=1,
                     # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
                     # (higher |s| means farther from collision)
                     # the max penalty is with s==0 (mid segment collision)
-                    # but when |s|>1 (t<0) then we have a milder slope - in this regime there is no collision
-                    # but there is still a slop - so the optimization will drive th cars away
+                    # but when |s|>1, then we have an exp decaying function (decays rapidly when getting far from collision)
                     # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
 
                     # sum over valid scenes
