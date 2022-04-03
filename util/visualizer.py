@@ -144,7 +144,7 @@ class Visualizer:
             loss_name = loss_term[1]
             loss_label = loss_term[0]
             loss_lambda_weight = loss_term[2]
-            if loss_name not in self.records.keys():
+            if loss_name not in self.records.keys() or not loss_lambda_weight:
                 continue
             loss_seq = np.array(self.records[loss_name]) * loss_lambda_weight
             plt.plot(iter_grid, loss_seq, label=loss_label)
