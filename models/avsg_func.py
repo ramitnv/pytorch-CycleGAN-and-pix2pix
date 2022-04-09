@@ -50,8 +50,8 @@ def extend_agents_feat(conditioning, agents, opt):
 
     out_of_road_indicators = get_out_of_road_indicators(conditioning, agents, opt)
 
-    feat_ext_len = 3
-    ex_agents = torch.nn.functional.pad(agents, pad=(0, feat_ext_len))
+    ex_agents = torch.nn.functional.pad(agents, pad=(0, 1))
+    ex_agents[:, :, 5] = out_of_road_indicators
     return ex_agents
 
 ###############################################################################
@@ -135,9 +135,15 @@ def get_out_of_road_indicators(conditioning, agents, opt):
 
 ###############################################################################
 def get_out_of_road_penalty(conditioning, ex_fake_agents, opt):
+
     agents_exists = conditioning['agents_exists']
-    max_n_agents = ex_fake_agents.shape[1]
-    return
+    n_agents_in_scene = conditioning['n_agents_in_scene']
+    batch_size, max_n_agents, feat_dim = ex_fake_agents.shape
+    assert len(opt.agent_feat_vec_coord_labels) == 5
+    assert feat_dim == 6
+    out_of_road_indicators = ex_fake_agents[:, :, 5]
+    out_of_road_penalty = out_of_road_indicators.sum(axis=-1) / n_agents_in_scene
+    return out_of_road_penalty
 
 ###############################################################################
 
