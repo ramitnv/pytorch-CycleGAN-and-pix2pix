@@ -4,6 +4,7 @@ from torch.nn.functional import elu
 import numpy as np
 
 
+
 ###############################################################################
 
 class ProjectionToAgentFeat(object):
@@ -41,6 +42,16 @@ class ProjectionToAgentFeat(object):
         # Set zero at non existent agents
         agents_vecs[agents_exists.logical_not()] = 0.
         return agents_vecs
+
+
+###############################################################################
+
+def extend_agents_feat(conditioning, agents, opt):
+    batch_size, max_n_agents, feat_dim_orig = agents.shape
+    feat_ext_len = 3
+    ex_agents = torch.nn.functional.pad(agents, pad=(0, feat_ext_len))
+    return ex_agents
+
 
 
 ###############################################################################

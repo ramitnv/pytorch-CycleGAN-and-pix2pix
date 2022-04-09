@@ -22,7 +22,7 @@ from models.avsg_discriminator import cal_gradient_penalty
 from models.avsg_generator import define_G
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
-from .avsg_func import get_collisions_penalty, get_out_of_road_penalty
+from .avsg_func import get_collisions_penalty, get_out_of_road_penalty, extend_agents_feat
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 
@@ -201,6 +201,7 @@ class AvsgModel(BaseModel):
         """Calculate loss terms for the generator"""
 
         fake_agents = self.netG(conditioning)
+        ex_fake_agents = extend_agents_feat(conditioning, fake_agents, opt)
 
         d_out_for_fake = self.netD(conditioning, fake_agents)
 
