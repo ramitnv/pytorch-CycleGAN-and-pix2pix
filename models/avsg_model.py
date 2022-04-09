@@ -215,7 +215,7 @@ class AvsgModel(BaseModel):
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
-        loss_G_out_of_road = get_out_of_road_penalty(conditioning, fake_agents, opt)
+        loss_G_out_of_road = get_out_of_road_penalty(conditioning, ex_fake_agents, opt)
 
         loss_G_collisions = get_collisions_penalty(conditioning, fake_agents, opt)
 

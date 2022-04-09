@@ -4,7 +4,6 @@ from torch.nn.functional import elu
 import numpy as np
 
 
-
 ###############################################################################
 
 class ProjectionToAgentFeat(object):
@@ -48,15 +47,19 @@ class ProjectionToAgentFeat(object):
 
 def extend_agents_feat(conditioning, agents, opt):
     batch_size, max_n_agents, feat_dim_orig = agents.shape
+
+    out_of_road_indicators = get_out_of_road_indicators(conditioning, agents, opt)
+
     feat_ext_len = 3
     ex_agents = torch.nn.functional.pad(agents, pad=(0, feat_ext_len))
     return ex_agents
 
-
-
 ###############################################################################
 
-def get_out_of_road_penalty(conditioning, agents, opt):
+def get_out_of_road_indicators(conditioning, agents, opt):
+    '''
+       # out_of_road_indicators [scene_id x agent_idx] = the distance for which the agent centroid is out-of-road
+    '''
     polygon_types = opt.polygon_types
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
     i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
@@ -121,14 +124,20 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
 
-    # sum over all scenes and all agents the penalty for out-of-road agents
-    # penalty := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
-    penalty = elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_left[valids])).sum() \
-              + elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_right[valids])).sum()
+    # out_of_road_indicators [scene_id x agent_idx] = the distance for which the agent centroid is out-of-road
+    #  := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
+    out_of_road_indicators = elu(sqrt(d_sqr_agent_to_mid) - sqrt(d_sqr_mid_to_left)) \
+                             + elu(sqrt(d_sqr_agent_to_mid) - sqrt(d_sqr_mid_to_right))
+    out_of_road_indicators[valids.logical_not()] = 0.
+    out_of_road_indicators = out_of_road_indicators.view(batch_size, max_n_agents)
+    return out_of_road_indicators
 
-    penalty /= batch_size  # we want average over batch_size
-    return penalty
 
+###############################################################################
+def get_out_of_road_penalty(conditioning, ex_fake_agents, opt):
+    agents_exists = conditioning['agents_exists']
+    max_n_agents = ex_fake_agents.shape[1]
+    return
 
 ###############################################################################
 
