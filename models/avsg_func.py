@@ -142,8 +142,9 @@ def get_out_of_road_penalty(conditioning, ex_fake_agents, opt):
     assert len(opt.agent_feat_vec_coord_labels) == 5
     assert feat_dim == 6
     out_of_road_indicators = ex_fake_agents[:, :, 5]
+    # Average over agents
     out_of_road_penalty = out_of_road_indicators.sum(axis=-1) / n_agents_in_scene
-    return out_of_road_penalty
+    return out_of_road_penalty.mean()  # average over batch
 
 ###############################################################################
 
