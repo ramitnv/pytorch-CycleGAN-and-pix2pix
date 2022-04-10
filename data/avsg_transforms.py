@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from util.util import to_num
+from util.common_util import to_num
 
 
 #########################################################################################

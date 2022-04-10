@@ -5,7 +5,7 @@ import torch
 
 import data
 import models
-from util import util
+from util.common_util import mkdirs
 
 
 class BaseOptions:
@@ -116,7 +116,7 @@ class BaseOptions:
 
         # save to the disk
         expr_dir = os.path.join(opt.checkpoints_dir, opt.name)
-        util.mkdirs(expr_dir)
+        mkdirs(expr_dir)
         file_name = os.path.join(expr_dir, '{}_opt.txt'.format(opt.phase))
         with open(file_name, 'wt') as opt_file:
             opt_file.write(message)

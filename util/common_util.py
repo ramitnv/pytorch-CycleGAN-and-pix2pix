@@ -1,11 +1,10 @@
 """This module contains simple helper functions """
 import os
 from typing import Dict
-
 import numpy as np
 import torch
 from PIL import Image
-
+from string import Template
 
 ##############################################################################################
 
@@ -152,7 +151,6 @@ def mkdir(path):
 
 ##############################################################################################
 
-from string import Template
 
 
 class DeltaTemplate(Template):

@@ -1,8 +1,7 @@
 import torch
 from torch import sqrt, linalg as LA
 from torch.nn.functional import elu
-import numpy as np
-
+from util.common_util import append_to_field
 
 ###############################################################################
 
@@ -49,6 +48,7 @@ def extend_agents_feat(conditioning, agents, opt):
     batch_size, max_n_agents, feat_dim_orig = agents.shape
 
     out_of_road_indicators = get_out_of_road_indicators(conditioning, agents, opt)
+    collisions_indicators = get_collisions_indicators(conditioning, agents, opt)
 
     ex_agents = torch.nn.functional.pad(agents, pad=(0, 1))
     ex_agents[:, :, 5] = out_of_road_indicators
@@ -136,7 +136,6 @@ def get_out_of_road_indicators(conditioning, agents, opt):
 ###############################################################################
 def get_out_of_road_penalty(conditioning, ex_fake_agents, opt):
 
-    agents_exists = conditioning['agents_exists']
     n_agents_in_scene = conditioning['n_agents_in_scene']
     batch_size, max_n_agents, feat_dim = ex_fake_agents.shape
     assert len(opt.agent_feat_vec_coord_labels) == 5
@@ -174,7 +173,7 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
 ###############################################################################
 
 
-def get_collisions_penalty(conditioning, agents, opt):
+def get_collisions_indicators(conditioning, agents, opt):
     batch_size, max_n_agents, n_feat = agents.shape
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
     i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
@@ -201,6 +200,7 @@ def get_collisions_penalty(conditioning, agents, opt):
 
     penalty = torch.tensor(0., device=opt.device)
 
+    collision_indicators = {}
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
             # find valid scenes = both agents IDs exists,
@@ -247,7 +247,14 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # s1,s2 are the distances of the intersections from the middle of the corresponding segments
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
-                    penalty_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
+                    collision_indicator_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
+                    collision_indicator_curr[valids.logical_not()] = 0.0
+
+                    # save the collision indicator for i_agent1 at seg1_name:
+                    append_to_field(collision_indicators, (i_agent1, seg1_name), collision_indicator_curr)
+                    # save the collision indicator for i_agent2 at seg2_name:
+                    append_to_field(collision_indicators, (i_agent2, seg2_name), collision_indicator_curr)
+
                     # we used
                     # 1+elu(1 - |s|) = 1 - |s|, if 1 - |s| >0,  else, exp(1 - |s|),  -inf < 1 - |s| <=1,
                     # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
@@ -256,9 +263,22 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # but when |s|>1, then we have an exp decaying function (decays rapidly when getting far from collision)
                     # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
 
-                    # sum over valid scenes
-                    penalty += torch.sum(penalty_curr)
+                    # # sum over valid scenes
+                    # penalty += torch.sum(penalty_curr)
 
-    penalty /= batch_size  # we want average over batch_size
-    assert not torch.isnan(penalty)
-    return penalty
+    # penalty /= batch_size  # we want average over batch_size
+    # assert not torch.isnan(penalty)
+    return collision_indicators
+
+
+###############################################################################
+def get_collisions_penalty(conditioning, ex_fake_agents, opt):
+
+    n_agents_in_scene = conditioning['n_agents_in_scene']
+    batch_size, max_n_agents, feat_dim = ex_fake_agents.shape
+    assert len(opt.agent_feat_vec_coord_labels) == 5
+    assert feat_dim == 6
+    out_of_road_indicators = ex_fake_agents[:, :, 5]
+    # Average over agents
+    out_of_road_penalty = out_of_road_indicators.sum(axis=-1) / n_agents_in_scene
+    return out_of_road_penalty.mean()  # average over batch
