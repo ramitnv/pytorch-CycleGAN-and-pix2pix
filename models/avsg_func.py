@@ -199,7 +199,7 @@ def get_collisions_indicators(conditioning, agents, opt):
                  'left': - front_vec, 'right': + front_vec}
     n_segments = 4
 
-    collision_indicators_pairs = {}
+    collision_indicators_lists = {}
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
             # find valid scenes = both agents IDs exists,
@@ -260,16 +260,16 @@ def get_collisions_indicators(conditioning, agents, opt):
                     collision_indicator_curr[valids.logical_not()] = 0.0
 
                     # save the collision indicator for i_agent1 at seg1_name:
-                    append_to_field(collision_indicators_pairs, (i_agent1, seg1_name), collision_indicator_curr)
+                    append_to_field(collision_indicators_lists, (i_agent1, seg1_name), collision_indicator_curr)
                     # save the collision indicator for i_agent2 at seg2_name:
-                    append_to_field(collision_indicators_pairs, (i_agent2, seg2_name), collision_indicator_curr)
+                    append_to_field(collision_indicators_lists, (i_agent2, seg2_name), collision_indicator_curr)
 
 
     collision_indicators =  torch.zeros((batch_size, max_n_agents, n_segments), device=opt.device)
     for i_agent1 in range(max_n_agents - 1):
         for i_seg1, seg1_name in enumerate(segs_vecs.keys()):
-
-            collision_indicators[:, i_agent1, i_seg1] = torch.nn.functional.softmax(xxx, dim=None)
+            collision_indicators_stk = torch.stack(collision_indicators_lists[i_agent1, i_seg1])
+            collision_indicators[:, i_agent1, i_seg1] = torch.nn.functional.softmax(collision_indicators_stk, dim=-1)
 
     return collision_indicators
 
