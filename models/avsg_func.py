@@ -240,8 +240,8 @@ def get_collisions_indicators(conditioning, agents, opt):
                     # s1 = (1/determinant) * (-L2_v_y * dx + L2_v_x * dy) = (L2_v_x * dy - L2_v_y * dx) / determinant
                     # s2 = (1/determinant) * (-L1_v_y * dx + L1_v_x * dy) = (L1_v_x * dy - L1_v_y * dx) / determinant
                     d = L2_p - L1_p
-                    s1 = (L2_v[valids, 0] * d[valids, 1] - L2_v[valids, 1] * d[valids, 0]) / determinant[valids]
-                    s2 = (L1_v[valids, 0] * d[valids, 1] - L1_v[valids, 1] * d[valids, 0]) / determinant[valids]
+                    s1 = (L2_v[:, 0] * d[:, 1] - L2_v[:, 1] * d[:, 0]) / determinant[:]
+                    s2 = (L1_v[:, 0] * d[:, 1] - L1_v[:, 1] * d[:, 0]) / determinant[:]
 
                     # s1,s2 are the distances of the intersections from the middle of the corresponding segments
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
@@ -268,7 +268,8 @@ def get_collisions_indicators(conditioning, agents, opt):
     collision_indicators =  torch.zeros((batch_size, max_n_agents, n_segments), device=opt.device)
     for i_agent1 in range(max_n_agents - 1):
         for i_seg1, seg1_name in enumerate(segs_vecs.keys()):
-            collision_indicators_stk = torch.stack(collision_indicators_lists[i_agent1, i_seg1])
+            curr_list = collision_indicators_lists[(i_agent1, i_seg1)]
+            collision_indicators_stk = torch.stack(curr_list)
             collision_indicators[:, i_agent1, i_seg1] = torch.nn.functional.softmax(collision_indicators_stk, dim=-1)
 
     return collision_indicators
