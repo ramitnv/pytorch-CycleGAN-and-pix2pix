@@ -197,10 +197,9 @@ def get_collisions_indicators(conditioning, agents, opt):
     # find a vector that goes from the center of each segment to one of its edges (doesn't matter which of the two)
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                  'left': - front_vec, 'right': + front_vec}
+    n_segments = 4
 
-    penalty = torch.tensor(0., device=opt.device)
-
-    collision_indicators = {}
+    collision_indicators_pairs = {}
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
             # find valid scenes = both agents IDs exists,
@@ -248,31 +247,45 @@ def get_collisions_indicators(conditioning, agents, opt):
                     # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
                     # then it is a collision between the cars and a penalty is added
                     collision_indicator_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
-                    collision_indicator_curr[valids.logical_not()] = 0.0
-
-                    # save the collision indicator for i_agent1 at seg1_name:
-                    append_to_field(collision_indicators, (i_agent1, seg1_name), collision_indicator_curr)
-                    # save the collision indicator for i_agent2 at seg2_name:
-                    append_to_field(collision_indicators, (i_agent2, seg2_name), collision_indicator_curr)
-
                     # we used
-                    # 1+elu(1 - |s|) = 1 - |s|, if 1 - |s| >0,  else, exp(1 - |s|),  -inf < 1 - |s| <=1,
+                    # 1 + elu(1 - |s|) = 2 - |s|, if  |s| <=1 , exp(1 - |s|),  if |s| > 1,
                     # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
                     # (higher |s| means farther from collision)
                     # the max penalty is with s==0 (mid segment collision)
                     # but when |s|>1, then we have an exp decaying function (decays rapidly when getting far from collision)
                     # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
 
-                    # # sum over valid scenes
-                    # penalty += torch.sum(penalty_curr)
+                    # TODO: replace with a learned transform (takes s1,s2 and outputs a single out per collision) where the learned parameters are port of the discriminator model
+                    #
+                    collision_indicator_curr[valids.logical_not()] = 0.0
 
-    # penalty /= batch_size  # we want average over batch_size
-    # assert not torch.isnan(penalty)
+                    # save the collision indicator for i_agent1 at seg1_name:
+                    append_to_field(collision_indicators_pairs, (i_agent1, seg1_name), collision_indicator_curr)
+                    # save the collision indicator for i_agent2 at seg2_name:
+                    append_to_field(collision_indicators_pairs, (i_agent2, seg2_name), collision_indicator_curr)
+
+
+    collision_indicators =  torch.zeros((batch_size, max_n_agents, n_segments), device=opt.device)
+    for i_agent1 in range(max_n_agents - 1):
+        for i_seg1, seg1_name in enumerate(segs_vecs.keys()):
+
+            collision_indicators[:, i_agent1, i_seg1] = torch.nn.functional.softmax(xxx, dim=None)
+
     return collision_indicators
 
 
 ###############################################################################
 def get_collisions_penalty(conditioning, ex_fake_agents, opt):
+
+
+
+
+                    # # sum over valid scenes
+                    # penalty += torch.sum(penalty_curr)
+
+    # penalty /= batch_size  # we want average over batch_size
+    # assert not torch.isnan(penalty)
+
 
     n_agents_in_scene = conditioning['n_agents_in_scene']
     batch_size, max_n_agents, feat_dim = ex_fake_agents.shape
