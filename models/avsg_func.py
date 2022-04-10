@@ -267,8 +267,8 @@ def get_collisions_indicators(conditioning, agents, opt):
 
     collision_indicators =  torch.zeros((batch_size, max_n_agents, n_segments), device=opt.device)
     for i_agent1 in range(max_n_agents - 1):
-        for i_seg1, seg1_name in enumerate(segs_vecs.keys()):
-            curr_list = collision_indicators_lists[(i_agent1, i_seg1)]
+        for i_seg1, seg1_name in collision_indicators_lists.keys():
+            curr_list = collision_indicators_lists[(i_agent1, seg1_name)]
             collision_indicators_stk = torch.stack(curr_list)
             collision_indicators[:, i_agent1, i_seg1] = torch.nn.functional.softmax(collision_indicators_stk, dim=-1)
 
