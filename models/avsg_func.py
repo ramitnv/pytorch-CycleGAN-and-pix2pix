@@ -182,7 +182,6 @@ def get_collisions_indicators(conditioning, agents, opt):
     # find a vector that goes from the center of each segment to one of its edges (doesn't matter which of the two)
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                  'left': - front_vec, 'right': + front_vec}
-    n_segments = 4
 
     collisions_indicators = {}
     for i_agent1 in range(max_n_agents - 1):
@@ -193,10 +192,9 @@ def get_collisions_indicators(conditioning, agents, opt):
                 continue
             for seg1_name, seg1_vecs in segs_vecs.items():
                 for seg2_name, seg2_vecs in segs_vecs.items():
-                    seg1_mids = segs_mids[seg1_name]
-                    seg2_mids = segs_mids[seg2_name]
-                    L1_p = seg1_mids[:, i_agent1, :]
-                    L2_p = seg2_mids[:, i_agent2, :]
+                    # get the segments middle points and direction vectors (normalized to be 0.5 * segment_length)
+                    L1_p = segs_mids[seg1_name][:, i_agent1, :]
+                    L2_p = segs_mids[seg2_name][:, i_agent2, :]
                     L1_v = seg1_vecs[:, i_agent1, :]
                     L2_v = seg2_vecs[:, i_agent2, :]
 
