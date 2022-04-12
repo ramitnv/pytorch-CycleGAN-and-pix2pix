@@ -22,7 +22,7 @@ from models.avsg_discriminator import cal_gradient_penalty
 from models.avsg_generator import define_G
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
-from .avsg_func import get_collisions_penalty, get_out_of_road_penalty, extend_agents_feat
+from .avsg_func import get_collisions_penalty, get_out_of_road_penalty, get_out_of_road_indicators, get_collisions_indicators
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 
@@ -142,7 +142,7 @@ class AvsgModel(BaseModel):
             # print('calculating the statistics (mean & std) of the agents features...')
             # from avsg_utils import calc_agents_feats_stats
             # print(calc_agents_feats_stats(dataset, opt.agent_feat_vec_coord_labels, opt.device, opt.num_agents))
-        #########################################################################################
+    #########################################################################################
 
     def get_D_losses(self, opt, real_agents, conditioning):
         """Calculate loss for the discriminator"""
@@ -201,7 +201,9 @@ class AvsgModel(BaseModel):
         """Calculate loss terms for the generator"""
 
         fake_agents = self.netG(conditioning)
-        ex_fake_agents = extend_agents_feat(conditioning, fake_agents, opt)
+
+        extra_D_inputs = {'out_of_road_indicators': get_out_of_road_indicators(conditioning, fake_agents, opt),
+                          'collisions_indicators': get_collisions_indicators(conditioning, fake_agents, opt)}
 
         d_out_for_fake = self.netD(conditioning, fake_agents)
 
@@ -215,9 +217,9 @@ class AvsgModel(BaseModel):
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
-        loss_G_out_of_road = get_out_of_road_penalty(conditioning, ex_fake_agents, opt)
+        loss_G_out_of_road = get_out_of_road_penalty(conditioning, extra_D_inputs, opt)
 
-        loss_G_collisions = get_collisions_penalty(conditioning, fake_agents, opt)
+        loss_G_collisions = get_collisions_penalty(conditioning, extra_D_inputs, opt)
 
         # combine losses
         reg_total = sum_regularization_terms([
