@@ -44,6 +44,14 @@ class ProjectionToAgentFeat(object):
 
 ###############################################################################
 
+def get_extra_D_inputs(conditioning, fake_agents, opt):
+    extra_D_inputs = {'out_of_road_indicators': get_out_of_road_indicators(conditioning, fake_agents, opt),
+                      'collisions_indicators': get_collisions_indicators(conditioning, fake_agents, opt)}
+    return extra_D_inputs
+
+
+###############################################################################
+
 def get_out_of_road_indicators(conditioning, agents, opt):
     '''
        # out_of_road_indicators [scene_id x agent_idx] = the distance for which the agent centroid is out-of-road

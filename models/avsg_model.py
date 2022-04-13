@@ -18,11 +18,11 @@ You need to implement the following functions:
 
 import torch
 
-from models.avsg_discriminator import cal_gradient_penalty
+from models.avsg_discriminator import get_gradient_penalty
 from models.avsg_generator import define_G
 from util.helper_func import get_net_weights_norm, sum_regularization_terms
 from .avsg_discriminator import define_D
-from .avsg_func import get_collisions_penalty, get_out_of_road_penalty, get_out_of_road_indicators, get_collisions_indicators
+from .avsg_func import get_collisions_penalty, get_out_of_road_penalty, get_extra_D_inputs
 from .base_model import BaseModel
 from .sub_modules import GANLoss
 
@@ -54,7 +54,6 @@ class AvsgModel(BaseModel):
             parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.1, help=" ")
             parser.add_argument('--lamb_loss_G_collisions', type=float, default=0.1, help=" ")
 
-
             # ~~~~ map encoder settings
             parser.add_argument('--dim_latent_polygon_elem', type=int, default=8, help='')
             parser.add_argument('--dim_latent_polygon_type', type=int, default=16, help='')
@@ -79,7 +78,6 @@ class AvsgModel(BaseModel):
             parser.add_argument('--agents_dec_use_bias', type=int, default=1)
             parser.add_argument('--agents_dec_mlp_n_layers', type=int, default=4)
             parser.add_argument('--gru_attn_layers', type=int, default=3, help='')
-
 
             # ~~~~ Display settings
             parser.add_argument('--vis_n_maps', type=int, default=2, help='')
@@ -147,10 +145,8 @@ class AvsgModel(BaseModel):
     def get_D_losses(self, opt, real_agents, conditioning):
         """Calculate loss for the discriminator"""
 
-        # we use conditional GANs; we need to feed both input and output to the discriminator
+        # generate fake agents
         fake_agents = self.netG(conditioning)
-
-        # Feed fake agents to discriminator and calculate its prediction loss
         fake_agents_detached = fake_agents.detach()  # stop backprop to the generator by detaching
 
         # (optional) add noise to D's inputs, as a stabilization technique
@@ -161,8 +157,8 @@ class AvsgModel(BaseModel):
             torch.nn.init.trunc_normal_(input_noise, mean=0., std=opt.added_noise_std_for_D_in, a=-1., b=1.)
             real_agents += input_noise
 
+        # Feed generated fake agents to discriminator and calculate its prediction loss
         d_out_for_fake = self.netD(conditioning, fake_agents_detached)
-
         # the loss is 0 if D correctly classify as fake
         loss_D_classify_fake = self.criterionGAN(prediction=d_out_for_fake, target_is_real=False)
 
@@ -172,7 +168,7 @@ class AvsgModel(BaseModel):
         # the loss is 0 if D correctly classify as not fake
         loss_D_classify_real = self.criterionGAN(prediction=d_out_for_real, target_is_real=True)
 
-        loss_D_grad_penalty = cal_gradient_penalty(self.netD, conditioning, real_agents,
+        loss_D_grad_penalty = get_gradient_penalty(self.netD, conditioning, real_agents,
                                                    fake_agents_detached, self)
 
         loss_D_weights_norm = get_net_weights_norm(self.netD, opt.type_weights_norm_D)
@@ -202,10 +198,9 @@ class AvsgModel(BaseModel):
 
         fake_agents = self.netG(conditioning)
 
-        extra_D_inputs = {'out_of_road_indicators': get_out_of_road_indicators(conditioning, fake_agents, opt),
-                          'collisions_indicators': get_collisions_indicators(conditioning, fake_agents, opt)}
+        extra_D_inputs_fake = get_extra_D_inputs(conditioning, fake_agents, opt)
 
-        d_out_for_fake = self.netD(conditioning, fake_agents)
+        d_out_for_fake = self.netD(conditioning, fake_agents, extra_D_inputs_fake)
 
         # G aims to fool D to wrongly classify the fake sample (make D output "True")
         loss_G_GAN = self.criterionGAN(prediction=d_out_for_fake, target_is_real=True)
@@ -217,9 +212,9 @@ class AvsgModel(BaseModel):
 
         loss_G_weights_norm = get_net_weights_norm(self.netG, opt.type_weights_norm_G)
 
-        loss_G_out_of_road = get_out_of_road_penalty(conditioning, extra_D_inputs, opt)
+        loss_G_out_of_road = get_out_of_road_penalty(conditioning, extra_D_inputs_fake, opt)
 
-        loss_G_collisions = get_collisions_penalty(conditioning, extra_D_inputs, opt)
+        loss_G_collisions = get_collisions_penalty(conditioning, extra_D_inputs_fake, opt)
 
         # combine losses
         reg_total = sum_regularization_terms([
