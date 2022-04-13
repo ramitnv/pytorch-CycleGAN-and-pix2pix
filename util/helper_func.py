@@ -162,7 +162,7 @@ def sum_regularization_terms(reg_losses):
 
 
 #########################################################################################
-def get_net_weights_norm(net, norm_type='None'):
+def get_net_weights_norm(net, norm_type):
     if norm_type == 'None':
         return None
     tot_norm = 0
