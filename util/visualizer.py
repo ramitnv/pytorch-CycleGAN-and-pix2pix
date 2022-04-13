@@ -33,10 +33,10 @@ class Visualizer:
         self.opt = opt  # cache the option
         self.name = opt.name
         self.wandb_online = opt.wandb_online
-        self.records = {}
+        self.records = {}  # saves history of loss terms, for the weighted loss plot
         exp_name = opt.name
         if exp_name == 'no_name':
-            exp_name = None # so that wandb will use a random name
+            exp_name = None  # so that wandb will use a random name
         if self.wandb_online:
             # https://docs.wandb.ai/guides/track/advanced/environment-variables
             os.environ["WANDB_MODE"] = "run"
@@ -115,25 +115,22 @@ class Visualizer:
                     append_to_field(self.records, key_label, v)
         append_to_field(self.records, 'i', i)
 
-        loss_terms_D = [('D_loss_total', 'train/D/loss_D', 1),
-                        ('D_loss_on_fake', 'train/D/loss_D_classify_fake', 1),
-                        ('D_loss_on_real', 'train/D/loss_D_classify_real', 1),
-                        ('lamb*(weights_norm)', 'train/D/loss_D_weights_norm',
-                         opt.lamb_loss_D_weights_norm,
-                         ('lamb*(grad_penalty)', 'train/D/loss_D_grad_penalty',
-                          opt.lamb_loss_D_grad_penalty))
-                        ]
+        loss_terms_D = [
+            ('D_loss_total', 'train/D/loss_D', 1),
+            ('D_loss_on_fake', 'train/D/loss_D_classify_fake', 1),
+            ('D_loss_on_real', 'train/D/loss_D_classify_real', 1),
+            ('lamb*(weights_norm)', 'train/D/loss_D_weights_norm', opt.lamb_loss_D_weights_norm),
+            ('lamb*(grad_penalty)', 'train/D/loss_D_grad_penalty', opt.lamb_loss_D_grad_penalty)
+        ]
         self.plot_weighted_loss_summary(loss_terms_D, 'D_weighted_losses')
 
-        loss_terms_G = [('G_loss_total', 'train/G/loss_G', 1),
-                        ('G_loss_GAN', "train/G/loss_G_GAN", 1),
-                        ('lamb*(G_loss_feat_match', "train/G/loss_G_feat_match",
-                         opt.lamb_loss_G_feat_match),
-                        ('lamb*(weights_norm)', "train/G/loss_G_weights_norm",
-                         opt.lamb_loss_G_weights_norm),
-                        ('lamb*(loss_G_out_of_road)', "train/G/loss_G_out_of_road",
-                         opt.lamb_loss_G_out_of_road),
-                        ]
+        loss_terms_G = [
+            ('G_loss_total', 'train/G/loss_G', 1),
+            ('G_loss_GAN', "train/G/loss_G_GAN", 1),
+            ('lamb*(G_loss_feat_match', "train/G/loss_G_feat_match", opt.lamb_loss_G_feat_match),
+            ('lamb*(weights_norm)', "train/G/loss_G_weights_norm", opt.lamb_loss_G_weights_norm),
+            ('lamb*(loss_G_out_of_road)', "train/G/loss_G_out_of_road", opt.lamb_loss_G_out_of_road),
+        ]
         self.plot_weighted_loss_summary(loss_terms_G, 'G_weighted_losses')
 
     # ==========================================================================
@@ -141,9 +138,7 @@ class Visualizer:
     def plot_weighted_loss_summary(self, loss_terms, log_name):
         iter_grid = np.array(self.records['i'])
         for loss_term in loss_terms:
-            loss_name = loss_term[1]
-            loss_label = loss_term[0]
-            loss_lambda_weight = loss_term[2]
+            loss_label, loss_name, loss_lambda_weight = loss_term
             if loss_name not in self.records.keys() or not loss_lambda_weight:
                 continue
             loss_seq = np.array(self.records[loss_name]) * loss_lambda_weight
