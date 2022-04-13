@@ -4,7 +4,7 @@ from torch import nn as nn
 from models.avsg_map_encoder import MapEncoder
 from models.sub_modules import PointNet, MLP
 from util.helper_func import init_net, set_spectral_norm_normalization
-
+from models.avsg_func import get_extra_D_inputs
 
 ###############################################################################
 
@@ -58,6 +58,7 @@ class SceneDiscriminator(nn.Module):
 
     def __init__(self, opt):
         super(SceneDiscriminator, self).__init__()
+        self.opt = opt
         self.device = opt.device
         self.batch_size = opt.batch_size
         self.max_num_agents = opt.max_num_agents
@@ -77,7 +78,9 @@ class SceneDiscriminator(nn.Module):
                            n_layers=opt.n_discr_out_mlp_layers,
                            opt=opt)
 
-    def forward(self, conditioning, agents_feat_vecs):
+    def forward(self, conditioning, agents_feat_vecs, extra_D_input=None):
+        if not extra_D_input:
+            extra_D_input = get_extra_D_inputs(conditioning, agents_feat_vecs, self.opt)
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)
@@ -92,41 +95,76 @@ class SceneDiscriminator(nn.Module):
 
 ##############################################################################
 
-def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='mixed', constant=1.0):
-    """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
+
+def get_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, constant=1.0):
+    """Calculate the gradient penalty loss,
+    similar to the WGAN-GP paper https://arxiv.org/abs/1704.00028
+    but I took the sum of gradients at x_real and at x_fake
+     (it makes more sense thant to take the gradient at the interpolation point, as in the paper)
 
     Arguments:
         netD (network)              -- discriminator network
         real_samp (tensor array)    -- real images
         fake_samp (tensor array)    -- generated images from the generator
         device (str)                -- GPU / CPU: from torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
-        type (str)                  -- if we mix real and fake data or not [real | fake | mixed].
         constant (float)            -- the constant used in formula ( ||gradient||_2 - constant)^2
         lambda_gp (float)           -- weight for this loss
 
     Returns the gradient penalty loss
     """
-    device = model.device
-    if model.gan_mode != 'wgangp':
+    if model.gan_mode != 'WGANGP':
         return None
-    if type == 'real':  # either use real images, fake images, or a linear interpolation of two.
-        interpolates_v = real_samp
-    elif type == 'fake':
-        interpolates_v = fake_samp
-    elif type == 'mixed':
-        alpha = torch.rand(real_samp.shape[0], 1, device=device)
-        alpha = alpha.expand(real_samp.shape[0], real_samp.nelement() // real_samp.shape[0]).contiguous().view(
-            *real_samp.shape)
-        interpolates_v = alpha * real_samp + ((1 - alpha) * fake_samp)
-    else:
-        raise NotImplementedError('{} not implemented'.format(type))
-    interpolates_v.requires_grad_(True)
-    disc_interpolates = netD(conditioning, interpolates_v)
-    gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates_v,
-                                    grad_outputs=torch.ones(disc_interpolates.size()).to(device),
-                                    create_graph=True, retain_graph=True, only_inputs=True)
-    gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
-    gradient_penalty = ((gradients + 1e-16).norm(2, dim=1) - constant).square().mean()  # added eps
+    gradient_penalty = torch.tensor(0., device=model.device)
+    for samp in real_samp, fake_samp:
+        is_requires_grad = samp.requires_grad
+        samp.requires_grad_(True)
+        d_out = netD(conditioning, samp)
+        gradients = torch.autograd.grad(outputs=d_out, inputs=samp,
+                                        grad_outputs=torch.ones_like(d_out),
+                                        create_graph=True, retain_graph=True, only_inputs=True)
+        gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
+        gradient_penalty += ((gradients + 1e-16).norm(2, dim=1) - constant).square().mean()  # added eps
+        samp.requires_grad_(is_requires_grad)
     return gradient_penalty
+
+###############################################################################
+
+# def cal_gradient_penalty(netD, conditioning, real_samp, fake_samp, model, type='mixed', constant=1.0):
+#     """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
+#
+#     Arguments:
+#         netD (network)              -- discriminator network
+#         real_samp (tensor array)    -- real images
+#         fake_samp (tensor array)    -- generated images from the generator
+#         device (str)                -- GPU / CPU: from torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
+#         type (str)                  -- if we mix real and fake data or not [real | fake | mixed].
+#         constant (float)            -- the constant used in formula ( ||gradient||_2 - constant)^2
+#         lambda_gp (float)           -- weight for this loss
+#
+#     Returns the gradient penalty loss
+#     """
+#     device = model.device
+#     if model.gan_mode != 'WGANGP':
+#         return None
+#     if type == 'real':  # either use real images, fake images, or a linear interpolation of two.
+#         interpolates_v = real_samp
+#     elif type == 'fake':
+#         interpolates_v = fake_samp
+#     elif type == 'mixed':
+#         # Based on "Improved Training of Wasserstein GANs" Gulrajani et. al. 2017
+#         alpha = torch.rand(real_samp.shape[0], 1, device=device)
+#         alpha = alpha.expand(real_samp.shape[0], real_samp.nelement() // real_samp.shape[0]).contiguous().view(
+#             *real_samp.shape)
+#         interpolates_v = alpha * real_samp + ((1 - alpha) * fake_samp)
+#     else:
+#         raise NotImplementedError('{} not implemented'.format(type))
+#     interpolates_v.requires_grad_(True)
+#     disc_interpolates = netD(conditioning, interpolates_v)
+#     gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolates_v,
+#                                     grad_outputs=torch.ones(disc_interpolates.size()).to(device),
+#                                     create_graph=True, retain_graph=True, only_inputs=True)
+#     gradients = gradients[0].view(real_samp.size(0), -1)  # flat the data
+#     gradient_penalty = ((gradients + 1e-16).norm(2, dim=1) - constant).square().mean()  # added eps
+#     return gradient_penalty
 
 ###############################################################################

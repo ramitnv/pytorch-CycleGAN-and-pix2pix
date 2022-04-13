@@ -12,7 +12,7 @@ from data.avsg_utils import agents_feat_vecs_to_dicts, get_agents_descriptions, 
     get_single_conditioning_from_batch
 from data.data_func import get_next_batch_cyclic
 from util.avsg_visualization_utils import visualize_scene_feat
-from util.util import append_to_field, num_to_str, to_num
+from util.common_util import append_to_field, num_to_str, to_num
 
 warnings.filterwarnings("ignore", "I found a path object that I don't think is part of a bar chart. Ignoring.")
 

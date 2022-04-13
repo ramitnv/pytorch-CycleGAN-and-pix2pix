@@ -1,8 +1,7 @@
 import torch
 from torch import sqrt, linalg as LA
 from torch.nn.functional import elu
-import numpy as np
-
+from util.common_util import append_to_field
 
 ###############################################################################
 
@@ -45,7 +44,18 @@ class ProjectionToAgentFeat(object):
 
 ###############################################################################
 
-def get_out_of_road_penalty(conditioning, agents, opt):
+def get_extra_D_inputs(conditioning, fake_agents, opt):
+    extra_D_inputs = {'out_of_road_indicators': get_out_of_road_indicators(conditioning, fake_agents, opt),
+                      'collisions_indicators': get_collisions_indicators(conditioning, fake_agents, opt)}
+    return extra_D_inputs
+
+
+###############################################################################
+
+def get_out_of_road_indicators(conditioning, agents, opt):
+    '''
+       # out_of_road_indicators [scene_id x agent_idx] = the distance for which the agent centroid is out-of-road
+    '''
     polygon_types = opt.polygon_types
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
     i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
@@ -110,14 +120,23 @@ def get_out_of_road_penalty(conditioning, agents, opt):
 
     # penalize fake agents if there is any left-lane or right-lane point closer to mid_point than the agents' centroid
 
-    # sum over all scenes and all agents the penalty for out-of-road agents
-    # penalty := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
-    penalty = elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_left[valids])).sum() \
-              + elu(sqrt(d_sqr_agent_to_mid[valids]) - sqrt(d_sqr_mid_to_right[valids])).sum()
+    # out_of_road_indicators [scene_id x agent_idx] = the distance for which the agent centroid is out-of-road
+    #  := ELU(dist_agent_to_mid - left_to_mid) + ELU(dist_agent_to_mid - right_to_mid)
+    out_of_road_indicators = elu(sqrt(d_sqr_agent_to_mid) - sqrt(d_sqr_mid_to_left)) \
+                             + elu(sqrt(d_sqr_agent_to_mid) - sqrt(d_sqr_mid_to_right))
+    out_of_road_indicators[valids.logical_not()] = 0.
+    out_of_road_indicators = out_of_road_indicators.view(batch_size, max_n_agents)
+    return out_of_road_indicators
 
-    penalty /= batch_size  # we want average over batch_size
-    return penalty
 
+###############################################################################
+def get_out_of_road_penalty(conditioning, extra_D_inputs, opt):
+
+    n_agents_in_scene = conditioning['n_agents_in_scene']
+    out_of_road_indicators = extra_D_inputs['out_of_road_indicators']
+    # Average over agents
+    out_of_road_penalty = out_of_road_indicators.sum(axis=-1) / n_agents_in_scene
+    return out_of_road_penalty.mean()  # average over batch
 
 ###############################################################################
 
@@ -147,7 +166,7 @@ def get_distance_to_closest_lane_points(lanes_points, lanes_points_exists, refer
 ###############################################################################
 
 
-def get_collisions_penalty(conditioning, agents, opt):
+def get_collisions_indicators(conditioning, agents, opt):
     batch_size, max_n_agents, n_feat = agents.shape
     i_centroid_x = opt.agent_feat_vec_coord_labels.index('centroid_x')
     i_centroid_y = opt.agent_feat_vec_coord_labels.index('centroid_y')
@@ -172,8 +191,7 @@ def get_collisions_penalty(conditioning, agents, opt):
     segs_vecs = {'front': + left_vec, 'back': - left_vec,
                  'left': - front_vec, 'right': + front_vec}
 
-    penalty = torch.tensor(0., device=opt.device)
-
+    collisions_indicators = {}
     for i_agent1 in range(max_n_agents - 1):
         for i_agent2 in range(i_agent1 + 1, max_n_agents):
             # find valid scenes = both agents IDs exists,
@@ -182,10 +200,9 @@ def get_collisions_penalty(conditioning, agents, opt):
                 continue
             for seg1_name, seg1_vecs in segs_vecs.items():
                 for seg2_name, seg2_vecs in segs_vecs.items():
-                    seg1_mids = segs_mids[seg1_name]
-                    seg2_mids = segs_mids[seg2_name]
-                    L1_p = seg1_mids[:, i_agent1, :]
-                    L2_p = seg2_mids[:, i_agent2, :]
+                    # get the segments middle points and direction vectors (normalized to be 0.5 * segment_length)
+                    L1_p = segs_mids[seg1_name][:, i_agent1, :]
+                    L2_p = segs_mids[seg2_name][:, i_agent2, :]
                     L1_v = seg1_vecs[:, i_agent1, :]
                     L2_v = seg2_vecs[:, i_agent2, :]
 
@@ -214,24 +231,44 @@ def get_collisions_penalty(conditioning, agents, opt):
                     # s1 = (1/determinant) * (-L2_v_y * dx + L2_v_x * dy) = (L2_v_x * dy - L2_v_y * dx) / determinant
                     # s2 = (1/determinant) * (-L1_v_y * dx + L1_v_x * dy) = (L1_v_x * dy - L1_v_y * dx) / determinant
                     d = L2_p - L1_p
-                    s1 = (L2_v[valids, 0] * d[valids, 1] - L2_v[valids, 1] * d[valids, 0]) / determinant[valids]
-                    s2 = (L1_v[valids, 0] * d[valids, 1] - L1_v[valids, 1] * d[valids, 0]) / determinant[valids]
+                    s1 = torch.zeros(batch_size, device=opt.device)
+                    s2 = torch.zeros(batch_size, device=opt.device)
+                    s1[valids] = (L2_v[valids, 0] * d[valids, 1] - L2_v[valids, 1] * d[valids, 0]) / determinant[valids]
+                    s2[valids] = (L1_v[valids, 0] * d[valids, 1] - L1_v[valids, 1] * d[valids, 0]) / determinant[valids]
 
-                    # s1,s2 are the distances of the intersections from the middle of the corresponding segments
-                    # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
-                    # then it is a collision between the cars and a penalty is added
-                    penalty_curr = (1 + elu(1 - s1.abs())) * (1 + elu(1 - s2.abs()))
-                    # we used
-                    # 1+elu(1 - |s|) = 1 - |s|, if 1 - |s| >0,  else, exp(1 - |s|),  -inf < 1 - |s| <=1,
-                    # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
-                    # (higher |s| means farther from collision)
-                    # the max penalty is with s==0 (mid segment collision)
-                    # but when |s|>1, then we have an exp decaying function (decays rapidly when getting far from collision)
-                    # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
+                    collisions_indicators[(i_agent1, i_agent2, seg1_name, seg2_name)] = (s1, s2, valids)
 
-                    # sum over valid scenes
-                    penalty += torch.sum(penalty_curr)
+    return collisions_indicators
+
+
+###############################################################################
+def get_collisions_penalty(conditioning, extra_D_inputs, opt):
+    agents_exists = conditioning['agents_exists']
+    batch_size,  max_n_agents = agents_exists.shape
+    collisions_indicators = extra_D_inputs['collisions_indicators']
+    segs_names = ['front', 'back', 'left', 'right']
+    penalty = torch.tensor(0., device=opt.device)
+    for i_agent1 in range(max_n_agents - 1):
+        for i_agent2 in range(i_agent1 + 1, max_n_agents):
+            for seg1_name in segs_names:
+                for seg2_name in segs_names:
+                    s1, s2, valids = collisions_indicators[(i_agent1, i_agent2, seg1_name, seg2_name)]
+                    if valids.sum() == 0:
+                        continue
+                    curr_penalty = (1 + elu(1 - s1[valids].abs())) * (1 + elu(1 - s2[valids].abs()))
+                    penalty += curr_penalty.sum()
+    # s1,s2 are the distances of the intersections from the middle of the corresponding segments
+    # # if the intersection is in both segment (|s1| < 1 and |s2| < 1),
+    # # then it is a collision between the cars and a penalty is added
+    # # we used
+    # # 1 + elu(1 - |s|) = 2 - |s|, if  |s| <=1 , exp(1 - |s|),  if |s| > 1,
+    # # since its positive and monotone increasing in t - so we get lower penalty with larger |s|
+    # # (higher |s| means farther from collision)
+    # # the max penalty is with s==0 (mid segment collision)
+    # # but when |s|>1, then we have an exp decaying function (decays rapidly when getting far from collision)
+    # # note that since 1+elu(t)  is non-negative , this logic holds also for optimizing s1 and s2 jointly
 
     penalty /= batch_size  # we want average over batch_size
     assert not torch.isnan(penalty)
     return penalty
+###############################################################################

@@ -129,11 +129,11 @@ class GANLoss(nn.Module):
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
         self.gan_mode = gan_mode
-        if gan_mode == 'lsgan':
+        if gan_mode == 'LSGAN':
             self.loss = nn.MSELoss()
         elif gan_mode == 'vanilla':
             self.loss = nn.BCEWithLogitsLoss()
-        elif gan_mode in ['wgangp']:
+        elif gan_mode in ['WGANGP']:
             self.loss = None
         else:
             raise NotImplementedError('gan mode %s not implemented' % gan_mode)
@@ -165,10 +165,10 @@ class GANLoss(nn.Module):
         Returns:
             the calculated loss.
         """
-        if self.gan_mode in ['lsgan', 'vanilla']:
+        if self.gan_mode in ['LSGAN', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.gan_mode == 'wgangp':
+        elif self.gan_mode == 'WGANGP':
             if target_is_real:
                 loss = -prediction.mean()
             else:
