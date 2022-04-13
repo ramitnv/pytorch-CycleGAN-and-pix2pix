@@ -35,7 +35,7 @@ class TrainOptions(BaseOptions):
                             help='multiply by this every lr_decay_iters iterations if lr_policy==step')
 
         # Objective function parameters
-        parser.add_argument('--gan_mode', type=str, default='WGANGP',
+        parser.add_argument('--gan_mode', type=str, default='vanilla',
                             help='the type of GAN objective. [vanilla| LSGAN | WGANGP]. '
                                  'vanilla GAN loss is the cross-entropy objective used in the original GAN paper.')
         parser.add_argument('--feat_match_loss_type', type=str, default='MSE', help=" 'L1' | 'MSE' ")
