@@ -83,9 +83,19 @@ class SceneDiscriminator(nn.Module):
             extra_D_input = get_extra_D_inputs(conditioning, agents_feat_vecs, self.opt)
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        '''
+        The extra_D_input is used to extend the agents feature vectors:
+        out_of_road_indicator &  collisions_indicators s1,s2 for 'front', 'back', 'left', 'right' 
+        '''
         agents_exists = conditioning['agents_exists']
+        out_of_road_indicators = extra_D_input['out_of_road_indicators']
+        collisions_indicators = extra_D_input['collisions_indicators']
+        segs_names = ['front', 'back', 'left', 'right']
+
         batch_size, max_n_agents = agents_exists.shape
         for i_agent in range(max_n_agents):
+
             pass
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
