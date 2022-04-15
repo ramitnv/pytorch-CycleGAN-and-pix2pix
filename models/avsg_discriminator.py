@@ -81,6 +81,14 @@ class SceneDiscriminator(nn.Module):
     def forward(self, conditioning, agents_feat_vecs, extra_D_input=None):
         if not extra_D_input:
             extra_D_input = get_extra_D_inputs(conditioning, agents_feat_vecs, self.opt)
+
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        agents_exists = conditioning['agents_exists']
+        batch_size, max_n_agents = agents_exists.shape
+        for i_agent in range(max_n_agents):
+            pass
+
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)
