@@ -77,6 +77,13 @@ class SceneDiscriminator(nn.Module):
                            d_hid=self.dim_discr_agents_enc,
                            n_layers=opt.n_discr_out_mlp_layers,
                            opt=opt)
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        self.collisions_enc = PointNet(d_in=2,  # s1,s2
+                                   d_out=1,
+                                   d_hid=32,
+                                   n_layers=3,
+                                   opt=opt)
+        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     def forward(self, conditioning, agents_feat_vecs, extra_D_input=None):
         if not extra_D_input:
@@ -100,9 +107,9 @@ class SceneDiscriminator(nn.Module):
         assert agents_feat_vecs.shape[-1] == 14
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
-        agent_incoming_collisions =
+        # agent_incoming_collisions =
         for i_agent in range(max_n_agents):
-            pass
+            self.collisions_enc()
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         map_feat = conditioning['map_feat']
