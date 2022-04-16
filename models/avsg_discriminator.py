@@ -6,6 +6,7 @@ from models.sub_modules import PointNet, MLP
 from util.helper_func import init_net, set_spectral_norm_normalization
 from models.avsg_func import get_extra_D_inputs
 
+
 ###############################################################################
 
 def define_D(opt, gpu_ids=None):
@@ -53,7 +54,42 @@ def define_D(opt, gpu_ids=None):
 
 
 ##############################################################################
+def get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name):
+    # we saved each agent pair one time in a sorted order, in the function 'get_collisions_indicators'
+    if i_agent1 > i_agent2:
+        return  i_agent2, i_agent1, seg1_name, seg2_name
+    else:
+        return i_agent1, i_agent2, seg1_name, seg2_name
 
+
+class CollisionsEncoder(nn.Module):
+    """
+    The extra_D_input is used to extend the agents feature vectors:
+    out_of_road_indicator &  collisions_indicators  for 'front', 'back', 'left', 'right' (5 features  total)
+    The collision indicator at each segment at each i_agent is calculated by
+    taking as input the s1,s2 with all agents paired with  i_agent and passing through a PointNet
+    """
+    def __init__(self, opt):
+        super(CollisionsEncoder, self).__init__()
+        self.max_num_agents = opt.max_num_agents
+        self.segs_names = ['front', 'back', 'left', 'right']
+        self.collisions_enc = dict()
+        for seg_name in self.segs_names:
+            self.collisions_enc[seg_name] = PointNet(d_in=2, d_out=1,
+                                                     d_hid=32, n_layers=3, opt=opt)
+
+    def forward(self, collisions_indicators):
+        max_n_agents = self.max_num_agents
+        segs_names = self.segs_names
+        for i_agent1 in range(max_n_agents):
+            for i_agent2 in range(i_agent1):
+                for seg1_name in segs_names:
+                    for seg2_name in segs_names:
+                        s1, s2, valids = collisions_indicators[get_saved_address(
+                            i_agent1, i_agent2, seg1_name, seg2_name)]
+
+
+##############################################################################
 class SceneDiscriminator(nn.Module):
 
     def __init__(self, opt):
@@ -77,19 +113,12 @@ class SceneDiscriminator(nn.Module):
                            d_hid=self.dim_discr_agents_enc,
                            n_layers=opt.n_discr_out_mlp_layers,
                            opt=opt)
-        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        self.collisions_enc = PointNet(d_in=2,  # s1,s2
-                                   d_out=1,
-                                   d_hid=32,
-                                   n_layers=3,
-                                   opt=opt)
-        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     def forward(self, conditioning, agents_feat_vecs, extra_D_input=None):
         if not extra_D_input:
             extra_D_input = get_extra_D_inputs(conditioning, agents_feat_vecs, self.opt)
 
-        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         '''
         The extra_D_input is used to extend the agents feature vectors:
@@ -100,7 +129,6 @@ class SceneDiscriminator(nn.Module):
         agents_exists = conditioning['agents_exists']
         out_of_road_indicators = extra_D_input['out_of_road_indicators']
         collisions_indicators = extra_D_input['collisions_indicators']
-        segs_names = ['front', 'back', 'left', 'right']
 
         batch_size, max_n_agents = agents_exists.shape
         agents_feat_vecs = nn.functional.pad(agents_feat_vecs, (0, 9))
@@ -108,10 +136,8 @@ class SceneDiscriminator(nn.Module):
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
         # agent_incoming_collisions =
-        for i_agent in range(max_n_agents):
-            self.collisions_enc()
 
-        #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)

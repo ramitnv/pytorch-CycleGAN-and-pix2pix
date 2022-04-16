@@ -65,6 +65,7 @@ class PointNet(nn.Module):
 
     def forward(self, in_set):
         """'
+            in_set  [batch_size x n_elements x feat_dim]
              each layer the function that operates on each element in the set x is
             f(elem y) = ReLu(A y + B * (sum over all non y elements) )
             where A and B are the same for all elements, and are layer dependent.
@@ -75,7 +76,7 @@ class PointNet(nn.Module):
 
         """
 
-        h = in_set # [batch_size x n_elements x feat_dim]
+        h = in_set  # [batch_size x n_elements x feat_dim]
         batch_size = h.shape[0]
         n_elements = h.shape[1]
         feat_dim = h.shape[2]
