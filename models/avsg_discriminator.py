@@ -86,7 +86,9 @@ class SceneDiscriminator(nn.Module):
 
         '''
         The extra_D_input is used to extend the agents feature vectors:
-        out_of_road_indicator &  collisions_indicators s1,s2 for 'front', 'back', 'left', 'right' 
+        out_of_road_indicator &  collisions_indicators  for 'front', 'back', 'left', 'right' (5 features  total)
+        The collision indicator at each segment at each i_agent is calculated by
+        taking as input the s1,s2 with all agents paired with  i_agent and passing through a PointNet
         '''
         agents_exists = conditioning['agents_exists']
         out_of_road_indicators = extra_D_input['out_of_road_indicators']
@@ -94,8 +96,12 @@ class SceneDiscriminator(nn.Module):
         segs_names = ['front', 'back', 'left', 'right']
 
         batch_size, max_n_agents = agents_exists.shape
+        agents_feat_vecs = nn.functional.pad(agents_feat_vecs, (0, 9))
+        assert agents_feat_vecs.shape[-1] == 14
+        agents_feat_vecs[:, :, 5] = out_of_road_indicators
+        agents_feat_vecs[:, :, 5] = out_of_road_indicators
+        agent_incoming_collisions =
         for i_agent in range(max_n_agents):
-
             pass
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
