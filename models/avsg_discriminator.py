@@ -57,7 +57,7 @@ def define_D(opt, gpu_ids=None):
 def get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name):
     # we saved each agent pair one time in a sorted order, in the function 'get_collisions_indicators'
     if i_agent1 > i_agent2:
-        return  i_agent2, i_agent1, seg1_name, seg2_name
+        return i_agent2, i_agent1, seg1_name, seg2_name
     else:
         return i_agent1, i_agent2, seg1_name, seg2_name
 
@@ -71,6 +71,7 @@ class CollisionsEncoder(nn.Module):
     """
     def __init__(self, opt):
         super(CollisionsEncoder, self).__init__()
+        self.device = opt.device
         self.max_num_agents = opt.max_num_agents
         self.segs_names = ['front', 'back', 'left', 'right']
         self.collisions_enc = dict()
@@ -81,10 +82,13 @@ class CollisionsEncoder(nn.Module):
     def forward(self, collisions_indicators):
         max_n_agents = self.max_num_agents
         segs_names = self.segs_names
+        batch_size = collisions_indicators['batch_size']
+        n_segs = len(segs_names)
+        enc_out = torch.zeros((batch_size, max_n_agents, n_segs), device=self.device)
         for i_agent1 in range(max_n_agents):
-            for i_agent2 in range(i_agent1):
-                for seg1_name in segs_names:
-                    for seg2_name in segs_names:
+            for i_agent2 in range(max_n_agents):
+                for i_seg1, seg1_name in enumerate(segs_names):
+                    for i_seg2, seg2_name in enumerate(segs_names):
                         s1, s2, valids = collisions_indicators[get_saved_address(
                             i_agent1, i_agent2, seg1_name, seg2_name)]
 

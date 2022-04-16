@@ -237,7 +237,7 @@ def get_collisions_indicators(conditioning, agents, opt):
                     s2[valids] = (L1_v[valids, 0] * d[valids, 1] - L1_v[valids, 1] * d[valids, 0]) / determinant[valids]
 
                     collisions_indicators[(i_agent1, i_agent2, seg1_name, seg2_name)] = (s1, s2, valids)
-
+    collisions_indicators['batch_size'] = batch_size
     return collisions_indicators
 
 
