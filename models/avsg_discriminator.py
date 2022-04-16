@@ -113,19 +113,20 @@ class SceneDiscriminator(nn.Module):
                            d_hid=self.dim_discr_agents_enc,
                            n_layers=opt.n_discr_out_mlp_layers,
                            opt=opt)
+        self.collisions_enc = CollisionsEncoder(opt)
+
+    ##############################################################################
 
     def forward(self, conditioning, agents_feat_vecs, extra_D_input=None):
+        """
+          The extra_D_input is used to extend the agents feature vectors:
+          out_of_road_indicator &  collisions_indicators  for 'front', 'back', 'left', 'right' (5 features  total)
+          The collision indicator at each segment at each i_agent is calculated by
+          taking as input the s1,s2 with all agents paired with  i_agent and passing through a PointNet
+        """
         if not extra_D_input:
             extra_D_input = get_extra_D_inputs(conditioning, agents_feat_vecs, self.opt)
 
-        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        '''
-        The extra_D_input is used to extend the agents feature vectors:
-        out_of_road_indicator &  collisions_indicators  for 'front', 'back', 'left', 'right' (5 features  total)
-        The collision indicator at each segment at each i_agent is calculated by
-        taking as input the s1,s2 with all agents paired with  i_agent and passing through a PointNet
-        '''
         agents_exists = conditioning['agents_exists']
         out_of_road_indicators = extra_D_input['out_of_road_indicators']
         collisions_indicators = extra_D_input['collisions_indicators']
@@ -135,9 +136,7 @@ class SceneDiscriminator(nn.Module):
         assert agents_feat_vecs.shape[-1] == 14
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
-        # agent_incoming_collisions =
 
-        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)
