@@ -1,10 +1,12 @@
 """This module contains simple helper functions """
 import os
+from string import Template
 from typing import Dict
+
 import numpy as np
 import torch
 from PIL import Image
-from string import Template
+
 
 ##############################################################################################
 
