@@ -1,5 +1,6 @@
 import torch
 from torch import nn as nn
+from torch.nn.functional import elu
 
 from models.avsg_func import get_extra_D_inputs
 from models.avsg_map_encoder import MapEncoder
@@ -54,13 +55,19 @@ def define_D(opt, gpu_ids=None):
 
 
 ##############################################################################
-def get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name):
+def get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name, collisions_indicators):
     # we saved each agent pair one time in a sorted order, in the function 'get_collisions_indicators'
+    if i_agent1 == i_agent2:
+        return None, False
     if i_agent1 > i_agent2:
-        return i_agent2, i_agent1, seg1_name, seg2_name
+        i_agent1_s, i_agent2_s = i_agent2, i_agent1
+        seg1_name_s, seg2_name_s = seg2_name, seg1_name
     else:
-        return i_agent1, i_agent2, seg1_name, seg2_name
-
+        i_agent1_s, i_agent2_s = i_agent1, i_agent2
+        seg1_name_s, seg2_name_s = seg1_name, seg2_name
+    address = (i_agent1_s, i_agent2_s, seg1_name_s, seg2_name_s)
+    is_val_address = address in collisions_indicators.keys()
+    return address, is_val_address
 
 class CollisionsEncoder(nn.Module):
     """
@@ -84,15 +91,21 @@ class CollisionsEncoder(nn.Module):
         segs_names = self.segs_names
         batch_size = collisions_indicators['batch_size']
         n_segs = len(segs_names)
-        enc_out = torch.zeros((batch_size, max_n_agents, n_segs), device=self.device)
+        enc_out = torch.zeros((batch_size, max_n_agents, n_segs**2), device=self.device)
         for i_agent1 in range(max_n_agents):
             for i_seg1, seg1_name in enumerate(segs_names):
                 # incoming = the s1 and s2 of all agent2 and seg2
-                incoming = torch.zeros((batch_size, max_n_agents * n_segs, 2), device=self.device)
                 for i_agent2 in range(max_n_agents):
                     for i_seg2, seg2_name in enumerate(segs_names):
-                        s1, s2, valids = collisions_indicators[get_saved_address(
-                            i_agent1, i_agent2, seg1_name, seg2_name)]
+                        address, is_val_address = get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name, collisions_indicators)
+                        if not is_val_address:
+                            continue
+                        s1, s2, valids = collisions_indicators[address]
+                        if valids.sum() == 0:
+                            continue
+                        enc_out[valids, i_agent1, (i_seg1 * n_segs + i_seg2)] +=\
+                            (1 + elu(1 - s1[valids].abs())) * (1 + elu(1 - s2[valids].abs()))
+        return enc_out
 
 
 
@@ -106,8 +119,11 @@ class SceneDiscriminator(nn.Module):
         self.batch_size = opt.batch_size
         self.max_num_agents = opt.max_num_agents
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-        self.extra_agent_feat = 2
-        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels) + self.extra_agent_feat
+        self.segs_names = ['front', 'back', 'left', 'right']
+        self.n_segs = len(self.segs_names)
+        self.extra_agent_feat = self.n_segs ** 2 + 1  # we add a feature of each collision type (e.g. front-left) and +1 for out_of_road
+        self.dim_agent_feat_vec_orig = len(opt.agent_feat_vec_coord_labels)
+        self.dim_agent_feat_vec = self.dim_agent_feat_vec_orig + self.extra_agent_feat
         self.dim_discr_agents_enc = opt.dim_discr_agents_enc
         self.dim_latent_map = opt.dim_latent_map
         self.map_enc = MapEncoder(opt)
@@ -141,9 +157,10 @@ class SceneDiscriminator(nn.Module):
 
         batch_size, max_n_agents = agents_exists.shape
         agents_feat_vecs = nn.functional.pad(agents_feat_vecs, (0, self.extra_agent_feat))
-        agents_feat_vecs[:, :, 5] = out_of_road_indicators
-        agents_feat_vecs[:, :, 6] = self.collisions_enc(collisions_indicators)
-        assert agents_feat_vecs.shape[-1] == 7
+        collisions_enc_out = self.collisions_enc(collisions_indicators)
+        agents_feat_vecs[:, :, self.dim_agent_feat_vec_orig] = out_of_road_indicators
+        agents_feat_vecs[:, :, (self.dim_agent_feat_vec_orig + 1):
+                               (self.dim_agent_feat_vec_orig + 1 + self.extra_agent_feat)] = collisions_enc_out
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)
