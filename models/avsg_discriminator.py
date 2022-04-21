@@ -86,11 +86,14 @@ class CollisionsEncoder(nn.Module):
         n_segs = len(segs_names)
         enc_out = torch.zeros((batch_size, max_n_agents, n_segs), device=self.device)
         for i_agent1 in range(max_n_agents):
-            for i_agent2 in range(max_n_agents):
-                for i_seg1, seg1_name in enumerate(segs_names):
+            for i_seg1, seg1_name in enumerate(segs_names):
+                # incoming = the s1 and s2 of all agent2 and seg2
+                incoming = torch.zeros((batch_size, max_n_agents * n_segs, 2), device=self.device)
+                for i_agent2 in range(max_n_agents):
                     for i_seg2, seg2_name in enumerate(segs_names):
                         s1, s2, valids = collisions_indicators[get_saved_address(
                             i_agent1, i_agent2, seg1_name, seg2_name)]
+
 
 
 ##############################################################################
@@ -103,7 +106,8 @@ class SceneDiscriminator(nn.Module):
         self.batch_size = opt.batch_size
         self.max_num_agents = opt.max_num_agents
         self.agent_feat_vec_coord_labels = opt.agent_feat_vec_coord_labels
-        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels)
+        self.extra_agent_feat = 2
+        self.dim_agent_feat_vec = len(opt.agent_feat_vec_coord_labels) + self.extra_agent_feat
         self.dim_discr_agents_enc = opt.dim_discr_agents_enc
         self.dim_latent_map = opt.dim_latent_map
         self.map_enc = MapEncoder(opt)
@@ -136,11 +140,10 @@ class SceneDiscriminator(nn.Module):
         collisions_indicators = extra_D_input['collisions_indicators']
 
         batch_size, max_n_agents = agents_exists.shape
-        agents_feat_vecs = nn.functional.pad(agents_feat_vecs, (0, 9))
-        assert agents_feat_vecs.shape[-1] == 14
+        agents_feat_vecs = nn.functional.pad(agents_feat_vecs, (0, self.extra_agent_feat))
         agents_feat_vecs[:, :, 5] = out_of_road_indicators
-        agents_feat_vecs[:, :, 5] = out_of_road_indicators
-
+        agents_feat_vecs[:, :, 6] = self.collisions_enc(collisions_indicators)
+        assert agents_feat_vecs.shape[-1] == 7
         map_feat = conditioning['map_feat']
         map_latent = self.map_enc(map_feat)
         agents_latent = self.agents_enc(agents_feat_vecs)
