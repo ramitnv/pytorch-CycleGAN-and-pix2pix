@@ -51,8 +51,8 @@ class AvsgModel(BaseModel):
             parser.add_argument('--use_layer_norm', type=int, default=0, help='0 or 1')
             parser.add_argument('--use_spectral_norm_D', type=int, default=1, help='0 or 1')
             parser.add_argument('--point_net_aggregate_func', type=str, default='sum', help='sum / max ')
-            parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0.1, help=" ")
-            parser.add_argument('--lamb_loss_G_collisions', type=float, default=0.1, help=" ")
+            parser.add_argument('--lamb_loss_G_out_of_road', type=float, default=0., help=" ")
+            parser.add_argument('--lamb_loss_G_collisions', type=float, default=0., help=" ")
 
             # ~~~~ map encoder settings
             parser.add_argument('--dim_latent_polygon_elem', type=int, default=8, help='')
