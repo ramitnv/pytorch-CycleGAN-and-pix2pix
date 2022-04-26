@@ -69,6 +69,9 @@ def get_saved_address(i_agent1, i_agent2, seg1_name, seg2_name, collisions_indic
     is_val_address = address in collisions_indicators.keys()
     return address, is_val_address
 
+##############################################################################
+
+
 class CollisionsEncoder(nn.Module):
     """
     The extra_D_input is used to extend the agents feature vectors:
@@ -86,12 +89,16 @@ class CollisionsEncoder(nn.Module):
             self.collisions_enc[seg_name] = PointNet(d_in=2, d_out=1,
                                                      d_hid=32, n_layers=3, opt=opt)
 
+    ##############################################################################
+
     def forward(self, collisions_indicators):
         max_n_agents = self.max_num_agents
         segs_names = self.segs_names
         batch_size = collisions_indicators['batch_size']
         n_segs = len(segs_names)
-        enc_out = torch.zeros((batch_size, max_n_agents, n_segs**2), device=self.device)
+        # enc_out = torch.zeros((batch_size, max_n_agents, n_segs**2), device=self.device)
+        aggregator_in = torch.zeros((batch_size, max_n_agents, n_segs**2, max_n_agents, 2), device=self.device)
+        aggregator_in_valid = torch.zeros((batch_size, max_n_agents, n_segs**2, max_n_agents), dtype=torch.bool, device=self.device)
         for i_agent1 in range(max_n_agents):
             for i_seg1, seg1_name in enumerate(segs_names):
                 # incoming = the s1 and s2 of all agent2 and seg2
@@ -103,10 +110,15 @@ class CollisionsEncoder(nn.Module):
                         s1, s2, valids = collisions_indicators[address]
                         if valids.sum() == 0:
                             continue
-                        enc_out[valids, i_agent1, (i_seg1 * n_segs + i_seg2)] +=\
-                            (1 + elu(1 - s1[valids].abs())) * (1 + elu(1 - s2[valids].abs()))
-        return enc_out
+                        aggregator_in_valid[:, i_agent1, (i_seg1 * n_segs + i_seg2), i_agent2] = valids
+                        aggregator_in[:, i_agent1,  (i_seg1 * n_segs + i_seg2), i_agent2, 0] = s1
+                        aggregator_in[:, i_agent1,  (i_seg1 * n_segs + i_seg2), i_agent2, 1] = s2
+                        # enc_out[valids, i_agent1, (i_seg1 * n_segs + i_seg2)] +=\
+                        #     (1 + elu(1 - s1[valids].abs())) * (1 + elu(1 - s2[valids].abs()))
 
+        enc_out = self.aggregator(aggregator_in, aggregator_in_valid)
+        return enc_out
+    ##############################################################################
 
 
 ##############################################################################
